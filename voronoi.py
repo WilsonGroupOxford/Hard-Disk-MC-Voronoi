@@ -84,6 +84,8 @@ class Colloid_Periodic_Voronoi():
             k_count = (self.ring_sizes == k).sum()
             self.p_k[i] = k_count
         self.p_k /= self.p_k.sum()
+        self.mean = (self.p_k*self.k).sum()
+        self.var = (self.p_k*self.k*self.k).sum() - self.mean*self.mean
 
         # Assortative mixing
         if assortative_mixing or aboav_weaire:
@@ -124,11 +126,29 @@ class Colloid_Periodic_Voronoi():
             self.aw[2] = r_value*r_value
 
 
+    def write(self,prefix='./voronoi'):
+        """Write Voronoi to files"""
+
+        # Write particle coordinates
+        np.savetxt('{}_particle_crds.dat'.format(prefix),self.acrds)
+
+        # Write ring coordinates
+        with open('{}_ring_crds.dat'.format(prefix),'w') as f:
+            for ring in self.ring_vertex_crds:
+                for c in ring.flatten():
+                    f.write('{:12.6f}  '.format(c))
+                f.write('\n')
+
+        # Write ring sizes
+        np.savetxt('{}_ring_sizes.dat'.format(prefix),self.ring_sizes)
+
+
 if __name__ == "__main__":
     crds = np.random.rand(100,2)*100.0
     v = Colloid_Periodic_Voronoi(crds=crds,box_size=(100,100))
     v.calculate_voronoi()
     v.network_analysis()
+    v.write()
 
 
 

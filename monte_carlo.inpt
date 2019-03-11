@@ -2,12 +2,12 @@ I/0
 ./test          output file prefix
 ---------------------------------------------------
 System Properties
-900             number of colloid particles
+900           number of colloid particles
 10.0            particle radius
-max             packing fraction (number or keyword)
+0.62             packing fraction (number or keyword)
 ---------------------------------------------------
 Monte Carlo
 0               random seed
-100               monte carlo moves
+100000               monte carlo moves
 1.0             maximum move distance (relative to radius)
 ---------------------------------------------------

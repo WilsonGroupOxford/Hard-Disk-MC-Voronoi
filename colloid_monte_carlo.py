@@ -1,5 +1,6 @@
 """Hard sphere monte carlo simulation"""
 import numpy as np
+from voronoi import Colloid_Periodic_Voronoi
 
 class Colloid_Monte_Carlo:
 
@@ -76,6 +77,20 @@ class Colloid_Monte_Carlo:
             self.monte_carlo_move()
             print(i,self.mc_acceptance/(i+1))
 
+        for i in range(self.n-1):
+            ci=self.crds[i,:]
+            for j in range(i+1,self.n):
+                cj=self.crds[j,:]
+                dx=ci[0]-cj[0]
+                dy=ci[1]-cj[1]
+                if(dx<-self.box_size[0]*0.5): dx+=self.box_size[0]
+                elif(dx>self.box_size[0]*0.5): dx-=self.box_size[0]
+                if(dy<-self.box_size[1]*0.5): dy+=self.box_size[1]
+                elif(dy>self.box_size[1]*0.5): dy-=self.box_size[1]
+                dd=np.sqrt(dx*dx+dy*dy)
+                if(dd<self.sigma*2):
+                    print(i,j,dd)
+
 
     def monte_carlo_move(self):
         """Single Monte Carlo displacement move"""
@@ -85,7 +100,9 @@ class Colloid_Monte_Carlo:
 
         # Get random displacement and trial coordinate
         delta = self.random_generator.uniform(0.0,self.mc_max_trial_distance,size=2)
-        crd = self.crds[particle,:] + delta
+        prev_crd = np.zeros(2,dtype=float)
+        prev_crd[:] = self.crds[particle,:]
+        crd = prev_crd + delta
         # Account for periodic boundary
         if crd[0] < 0.0:
             crd[0] += self.box_size[0]
@@ -95,19 +112,36 @@ class Colloid_Monte_Carlo:
             crd[1] += self.box_size[1]
         elif crd[1] > self.box_size[1]:
             crd[1] -= self.box_size[1]
+        self.crds[particle,:] = crd
 
-        # Calculate distances to other particles
-        dx_dy = np.abs(self.crds - crd)
-        dx_dy[dx_dy[:,0]>self.box_size[0]*0.5] -= self.box_size[0]
-        dx_dy[dx_dy[:,1]>self.box_size[1]*0.5] -= self.box_size[1]
-        d_sq = dx_dy[:,0]**2 + dx_dy[:,1]**2
+        # Calculate distances to other particles, applying minimum image convention
+        dx = self.crds[:,0] - crd[0]
+        dy = self.crds[:,1] - crd[1]
+        dx[dx<-self.box_size[0]*0.5] += self.box_size[0]
+        dx[dx>self.box_size[0]*0.5] -= self.box_size[0]
+        dy[dy<-self.box_size[1]*0.5] += self.box_size[1]
+        dy[dy>self.box_size[1]*0.5] -= self.box_size[1]
+        d_sq = dx*dx+dy*dy
 
         # Accept if does not violate overlap condition
-        if np.sum(d_sq<self.diameter_sq)<=1.0:
-            self.crds[particle,:] = crd
+        if np.sum(d_sq<self.diameter_sq)==1:
             self.mc_acceptance += 1
+        else:
+            self.crds[particle,:] = prev_crd
 
+
+    def analysis(self):
+        """Construct voronoi diagram and perform network analysis"""
+
+        voronoi = Colloid_Periodic_Voronoi(crds=self.crds,box_size=self.box_size)
+        voronoi.calculate_voronoi()
+        voronoi.network_analysis()
+        print(voronoi.k)
+        print(voronoi.p_k)
+        print(voronoi.var,voronoi.r)
+        voronoi.write()
 
 if __name__ == "__main__":
     mc = Colloid_Monte_Carlo()
     mc.monte_carlo()
+    mc.analysis()
