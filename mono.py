@@ -16,7 +16,7 @@ class Colloid_Monte_Carlo:
         """Read sample properties and monte carlo parameters"""
 
         # Read parameters
-        with open('./monte_carlo.inpt','r') as f:
+        with open('./mono.inpt','r') as f:
             f.readline()
             self.output_prefix = f.readline().split()[0]
             self.output_freq = int(f.readline().split()[0])
