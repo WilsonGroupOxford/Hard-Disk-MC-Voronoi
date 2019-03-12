@@ -19,6 +19,7 @@ class Colloid_Monte_Carlo:
         with open('./monte_carlo.inpt','r') as f:
             f.readline()
             self.output_prefix = f.readline().split()[0]
+            self.output_freq = int(f.readline().split()[0])
             f.readline()
             f.readline()
             self.n = int(f.readline().split()[0]) # Number of particles
@@ -73,23 +74,17 @@ class Colloid_Monte_Carlo:
         self.mc_acceptance = 0
 
         # Perform required moves
-        for i in range(self.mc_moves):
-            self.monte_carlo_move()
-            print(i,self.mc_acceptance/(i+1))
+        with open('{}.dat'.format(self.output_prefix),'w') as analysis_file:
+            for i in range(1,self.mc_moves+1):
+                self.monte_carlo_move()
+                if i%self.output_freq==0:
+                    print(i,self.mc_acceptance/i)
+                    analysis = self.analysis()
+                    analysis_file.write('{:12.6f} {:12.6f} {:12.6f} {:12.6f} {:12.6f} {:12.6f} {:12.6f}  \n'.format(*analysis))
 
-        for i in range(self.n-1):
-            ci=self.crds[i,:]
-            for j in range(i+1,self.n):
-                cj=self.crds[j,:]
-                dx=ci[0]-cj[0]
-                dy=ci[1]-cj[1]
-                if(dx<-self.box_size[0]*0.5): dx+=self.box_size[0]
-                elif(dx>self.box_size[0]*0.5): dx-=self.box_size[0]
-                if(dy<-self.box_size[1]*0.5): dy+=self.box_size[1]
-                elif(dy>self.box_size[1]*0.5): dy-=self.box_size[1]
-                dd=np.sqrt(dx*dx+dy*dy)
-                if(dd<self.sigma*2):
-                    print(i,j,dd)
+        # Write final coordinates
+        self.write()
+
 
 
     def monte_carlo_move(self):
@@ -131,17 +126,22 @@ class Colloid_Monte_Carlo:
 
 
     def analysis(self):
-        """Construct voronoi diagram and perform network analysis"""
+        """Construct voronoi diagram and analyse"""
 
         voronoi = Colloid_Periodic_Voronoi(crds=self.crds,box_size=self.box_size)
         voronoi.calculate_voronoi()
         voronoi.network_analysis()
-        print(voronoi.k)
-        print(voronoi.p_k)
-        print(voronoi.var,voronoi.r)
-        voronoi.write()
+        return np.array([self.phi,voronoi.p_k[voronoi.k==6][0],voronoi.var,voronoi.r,voronoi.aw[0],voronoi.aw[1],voronoi.aw[2]])
+
+
+    def write(self):
+        """Construct voronoi diagram and write to file"""
+
+        voronoi = Colloid_Periodic_Voronoi(crds=self.crds,box_size=self.box_size)
+        voronoi.calculate_voronoi()
+        voronoi.write(prefix=self.output_prefix)
+
 
 if __name__ == "__main__":
     mc = Colloid_Monte_Carlo()
     mc.monte_carlo()
-    mc.analysis()

@@ -87,6 +87,13 @@ class Colloid_Periodic_Voronoi():
         self.mean = (self.p_k*self.k).sum()
         self.var = (self.p_k*self.k*self.k).sum() - self.mean*self.mean
 
+        # Break if only one ring size present
+        if self.k.size==1:
+            self.r = np.nan
+            self.aw = np.zeros(3)
+            self.aw[:] = np.nan
+            return
+
         # Assortative mixing
         if assortative_mixing or aboav_weaire:
             # Calculate correlation matrix
