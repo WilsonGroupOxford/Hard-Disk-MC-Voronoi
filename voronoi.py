@@ -23,8 +23,11 @@ class Colloid_Voronoi:
             k_count = (self.ring_sizes == k).sum()
             self.p_k[i] = k_count
         self.p_k /= self.p_k.sum()
-        self.mean = (self.p_k*self.k).sum()
-        self.var = (self.p_k*self.k*self.k).sum() - self.mean*self.mean
+        k1 = (self.p_k*self.k).sum()
+        k2 = (self.p_k*self.k*self.k).sum()
+        k3 = (self.p_k*self.k*self.k*self.k).sum()
+        self.mean = k1
+        self.var = k2 - k1*k1
 
         # Break if only one ring size present
         if self.k.size==1:
@@ -50,6 +53,8 @@ class Colloid_Voronoi:
                 for j,k_j in enumerate(self.k):
                     self.r += k_i*k_j*(self.e[i,j] - q[i]*q[j])
             self.r /= (q*self.k*self.k).sum() - ((q*self.k).sum())**2
+            # Estimate Aboav-Weaire parameter
+            self.a_est = ((-self.r*(k1*k3-k2*k2))-self.var**2)/(k1*k1*self.var)
 
         # Aboav-Weaire
         if aboav_weaire:
@@ -275,6 +280,7 @@ if __name__ == "__main__":
     v.calculate_voronoi()
     v.network_analysis()
     v.voronoi_analysis()
+    print(v.a_est,v.aw[0])
     v.write()
 
 
