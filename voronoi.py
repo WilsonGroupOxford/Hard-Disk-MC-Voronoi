@@ -18,6 +18,7 @@ class Colloid_Voronoi:
 
         # Ring statistics
         k_indices = np.arange(self.k[-1]+1) - self.k[0]
+        self.num_rings = self.ring_sizes.size
         self.p_k = np.zeros_like(self.k,dtype=float)
         for i,k in enumerate(self.k):
             k_count = (self.ring_sizes == k).sum()
@@ -68,12 +69,12 @@ class Colloid_Voronoi:
             kk = np.array(kk)
             m_k = np.array(m_k)
             # Perform linear fit
-            x = 6.0*(kk-6.0)
+            x = k1*(kk-k1)
             y = kk*m_k
             grad, y_int, r_value, p_value, std_err = linregress(x,y)
             self.aw = np.zeros(3,dtype=float)
             self.aw[0] = 1.0-grad
-            self.aw[1] = y_int - 36.0
+            self.aw[1] = y_int - k1*k1
             self.aw[2] = r_value*r_value
 
 
@@ -116,7 +117,7 @@ class Colloid_Periodic_Voronoi(Colloid_Voronoi):
 
         # Get input variables
         self.particle_crds = kwargs.get('crds')
-        self.num_particle_crds = crds[:,0].size
+        self.num_particle_crds = self.particle_crds[:,0].size
         self.box_size = kwargs.get('box_size')
         self.sigma = kwargs.get('sigma',None)
 
@@ -182,14 +183,14 @@ class Colloid_Aperiodic_Voronoi(Colloid_Voronoi):
 
         # Get input variables
         self.particle_crds = kwargs.get('crds')
-        self.num_particle_crds = crds[:,0].size
+        self.num_particle_crds = self.particle_crds[:,0].size
         self.sigma = kwargs.get('sigma',None)
 
         # Calculate cell dimensions
-        min_x = np.min(crds[:,0])
-        max_x = np.max(crds[:,0])
-        min_y = np.min(crds[:,1])
-        max_y = np.max(crds[:,1])
+        min_x = np.min(self.particle_crds[:,0])
+        max_x = np.max(self.particle_crds[:,0])
+        min_y = np.min(self.particle_crds[:,1])
+        max_y = np.max(self.particle_crds[:,1])
         self.box_limits = np.array([min_x, max_x, min_y, max_y])
 
 
@@ -211,7 +212,7 @@ class Colloid_Aperiodic_Voronoi(Colloid_Voronoi):
             neglect = False
             for vertex_id in self.voronoi.regions[ring_id]:
                 if vertex_id == -1:
-                    crds.append(crds[-1])
+                    crds.append(np.zeros(2))
                     neglect = True
                 else:
                     crds.append(self.voronoi.vertices[vertex_id])
