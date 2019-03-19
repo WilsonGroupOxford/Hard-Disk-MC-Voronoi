@@ -34,7 +34,7 @@ class Binary_Colloid_Monte_Carlo:
             f.readline()
             self.random_seed = int(f.readline().split()[0])
             self.mc_moves = int(f.readline().split()[0])
-            self.mc_delta = float(f.readline().split()[0])
+            self.mc_delta = float(f.readline().split()[0])*0.5
 
         # Initialise additional parameters
         self.n_a = int(self.n*self.n_proportion) # Number of a
@@ -203,8 +203,12 @@ class Binary_Colloid_Monte_Carlo:
         self.write_xyz()
 
         # Perform required moves
-        for i range(1,self.mc_moves+1):
+        for i in range(1,self.mc_moves+1):
             self.monte_carlo_move()
+            if i%self.output_xyz_freq==0:
+                self.write_xyz()
+            if i%1==0:
+                print(i,self.mc_acceptance/i)
 
         # Close files
         self.f_a.close()
@@ -214,7 +218,56 @@ class Binary_Colloid_Monte_Carlo:
     def monte_carlo_move(self):
         """Single Monte Carlo displacement move"""
 
-        
+        # Select random particle of type a or b
+        particle_id = self.random_generator.randint(0,self.n)
+        if particle_id<self.n_a:
+
+            # Get random displacement and trial coordinate
+            crd_delta = self.random_generator.uniform(-self.mc_delta,self.mc_delta,size=2)
+            crd_prev = np.zeros(2,dtype=float)
+            crd_prev[:] = self.crds_a[particle_id,:]
+            crd_trial = crd_prev + crd_delta
+
+            # Account for periodic boundary
+            crd_trial[crd_trial<0.0] += self.cell_length
+            crd_trial[crd_trial>self.cell_length] -= self.cell_length
+
+            # Set trial coordinate
+            self.crds_a[particle_id,:] = crd_trial
+
+            # Evaluate condition (hard-disc overlap)
+            reject = self.hard_disc_overlap(particle_id,0)
+
+            # Accept/reject move
+            if not reject:
+                self.mc_acceptance += 1
+            else:
+                self.crds_a[particle_id,:] = crd_prev
+        else:
+            particle_id -= self.n_a
+
+            # Get random displacement and trial coordinate
+            crd_delta = self.random_generator.uniform(-self.mc_delta,self.mc_delta,size=2)
+            crd_prev = np.zeros(2,dtype=float)
+            crd_prev[:] = self.crds_b[particle_id,:]
+            crd_trial = crd_prev + crd_delta
+
+            # Account for periodic boundary
+            crd_trial[crd_trial<0.0] += self.cell_length
+            crd_trial[crd_trial>self.cell_length] -= self.cell_length
+
+            # Set trial coordinate
+            self.crds_b[particle_id,:] = crd_trial
+
+            # Evaluate condition (hard-disc overlap)
+            reject = self.hard_disc_overlap(particle_id,1)
+
+            # Accept/reject move
+            if not reject:
+                self.mc_acceptance += 1
+            else:
+                self.crds_b[particle_id,:] = crd_prev
+
 
     def write_xyz(self):
         """Write coordinates in xyz file format"""
