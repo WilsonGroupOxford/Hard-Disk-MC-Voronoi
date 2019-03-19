@@ -1,4 +1,4 @@
-"""Hard sphere monte carlo simulation"""
+"""Hard monodisperse sphere monte carlo simulation"""
 import numpy as np
 from voronoi import Colloid_Periodic_Voronoi
 
@@ -49,6 +49,7 @@ class Colloid_Monte_Carlo:
         dx = self.sigma*2.0*sf
         dy = self.sigma*np.sqrt(3.0)*sf
         self.box_size = np.array([dim*dx,dim*dy])
+        print(self.box_size)
 
         # Set up regular hexagonal lattice
         crds = np.zeros((dim,dim,2),dtype=float)
@@ -131,6 +132,7 @@ class Colloid_Monte_Carlo:
         voronoi = Colloid_Periodic_Voronoi(crds=self.crds,box_size=self.box_size)
         voronoi.calculate_voronoi()
         voronoi.network_analysis()
+        # voronoi.voronoi_analysis()
         return np.array([self.phi,voronoi.p_k[voronoi.k==6][0],voronoi.var,voronoi.r,voronoi.aw[0],voronoi.aw[1],voronoi.aw[2]])
 
 

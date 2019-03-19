@@ -107,6 +107,25 @@ class Colloid_Voronoi:
         # Write ring sizes
         np.savetxt('{}_ring_sizes.dat'.format(prefix),self.ring_sizes)
 
+        # # Write ring connections - TEMPORARY FOR FIGURES
+        # ring_connections = [[] for i in range(self.num_particle_crds)]
+        # for pair in self.voronoi.ridge_points:
+        #     id_a = pair[0]
+        #     id_b = pair[1]
+        #     # if self.non_edge_rings[id_a] or self.non_edge_rings[id_b]:
+        #     ring_connections[id_a].append(id_b)
+        #     ring_connections[id_b].append(id_a)
+        # all_ring_connections = []
+        # for cnxs in ring_connections:
+        #     all_ring_connections.append(np.array(cnxs))
+        # all_ring_connections = np.array(all_ring_connections)
+        # with open('{}_ring_cnxs.dat'.format(prefix),'w') as f:
+        #     for ring in all_ring_connections:
+        #         for c in ring:
+        #             f.write('{}  '.format(c))
+        #         f.write('\n')
+
+
 
 class Colloid_Periodic_Voronoi(Colloid_Voronoi):
     """Voronoi analysis with periodic boundary conditions"""
@@ -252,12 +271,12 @@ class Colloid_Aperiodic_Voronoi(Colloid_Voronoi):
         for cnxs in ring_connections:
             self.ring_connections.append(np.array(cnxs))
         self.ring_connections = np.array(self.ring_connections)
+        self.non_edge_rings = keep_rings
 
         # Get ring size range
         k_min = np.min(self.ring_sizes)
         k_max = np.max(self.ring_sizes)
         self.k = np.arange(k_min,k_max+1,dtype=int)
-
 
 def convex_polygon_area(crds):
     """Area of a convex polygon using shoelace method"""
@@ -276,12 +295,12 @@ def convex_polygon_area(crds):
 if __name__ == "__main__":
     # crds = np.random.rand(100,2)*100.0
     crds = np.genfromtxt('test_particle_crds.dat')
-    # v = Colloid_Periodic_Voronoi(crds=crds,box_size=(808.06421225, 699.8041357),sigma=10.0)
+    # v = Colloid_Periodic_Voronoi(crds=crds,box_size=(301.14775146, 260.80160306),sigma=10.0)
     v = Colloid_Aperiodic_Voronoi(crds=crds,sigma=10.0)
     v.calculate_voronoi()
     v.network_analysis()
     v.voronoi_analysis()
-    print(v.a_est,v.aw[0])
+    print(v.a_est,v.aw[0],v.num_rings)
     v.write()
 
 
