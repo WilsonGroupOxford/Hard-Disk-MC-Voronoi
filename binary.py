@@ -21,20 +21,20 @@ class Binary_Colloid_Monte_Carlo:
         with open('./binary.inpt','r') as f:
             f.readline()
             self.output_prefix = f.readline().split()[0]
-            self.output_freq = int(f.readline().split()[0])
+            self.output_analysis_freq = int(f.readline().split()[0])
+            self.output_voronoi_freq = int(f.readline().split()[0])
+            self.output_xyz_freq = int(f.readline().split()[0])
             f.readline()
             f.readline()
             self.n = int(f.readline().split()[0]) # Total number of particles
             self.n_proportion = float(f.readline().split()[0]) # Number ratio b/a
             self.sigma_ratio = float(f.readline().split()[0]) # Sigma ratio b/a
             self.phi = float(f.readline().split()[0]) # Total packing fraction
-            # self.sigma = float(f.readline().split()[0]) # Particle radius
-            # self.phi = f.readline().split()[0] # Packing fraction
-            # f.readline()
-            # f.readline()
-            # self.random_seed = int(f.readline().split()[0])
-            # self.mc_moves = int(f.readline().split()[0])
-            # self.mc_max_trial_distance = float(f.readline().split()[0])
+            f.readline()
+            f.readline()
+            self.random_seed = int(f.readline().split()[0])
+            self.mc_moves = int(f.readline().split()[0])
+            self.mc_delta = float(f.readline().split()[0])
 
         # Initialise additional parameters
         self.n_a = int(self.n*self.n_proportion) # Number of a
@@ -188,5 +188,50 @@ class Binary_Colloid_Monte_Carlo:
         return overlap
 
 
+    def monte_carlo(self):
+        """Perform Monte Carlo simulation"""
+
+        # Initialise Mersenne-Twister random number generator
+        self.random_generator = np.random.RandomState(self.random_seed)
+
+        # Initialise Monte Carlo progress
+        self.mc_acceptance = 0
+
+        # Initialise output files
+        self.f_a = open('{}.dat'.format(self.output_prefix),'w')
+        self.f_xyz = open('{}.xyz'.format(self.output_prefix),'w')
+        self.write_xyz()
+
+        # Perform required moves
+        for i range(1,self.mc_moves+1):
+            self.monte_carlo_move()
+
+        # Close files
+        self.f_a.close()
+        self.f_xyz.close()
+
+
+    def monte_carlo_move(self):
+        """Single Monte Carlo displacement move"""
+
+        
+
+    def write_xyz(self):
+        """Write coordinates in xyz file format"""
+
+        # Number of particles, blank line
+        self.f_xyz.write('{} \n \n'.format(self.n))
+
+        # Type X Y Z position (set z so base of particles in same plane)
+        for i in range(self.n_a):
+            self.f_xyz.write('A  {:12.6f}  {:12.6f}  {:12.6f}  \n'.format(self.crds_a[i,0],self.crds_a[i,1],self.sigma_a))
+        for i in range(self.n_b):
+            self.f_xyz.write('B  {:12.6f}  {:12.6f}  {:12.6f}  \n'.format(self.crds_b[i,0],self.crds_b[i,1],self.sigma_b))
+
+
+
+
+
 if __name__ == "__main__":
     mc = Binary_Colloid_Monte_Carlo()
+    mc.monte_carlo()

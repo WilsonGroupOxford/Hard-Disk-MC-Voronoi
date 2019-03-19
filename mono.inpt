@@ -1,6 +1,6 @@
 I/0
 ./test          output file prefix
-10000            write frequency
+10000           write frequency
 ---------------------------------------------------
 System Properties
 144           number of colloid particles
