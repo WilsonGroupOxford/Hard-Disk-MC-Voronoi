@@ -84,7 +84,7 @@ class Binary_Colloid_Monte_Carlo:
         if not check_area:
             sys.exit()
 
-        # Arrange blocks in mixed state
+        # Arrange blocks in unmixed state
         block_dim = np.sqrt(self.cell_area/total_blocks)
         block_a_crds = np.zeros((block_a_capacity,2))
         block_b_crds = np.zeros((block_b_capacity,2))
@@ -102,52 +102,51 @@ class Binary_Colloid_Monte_Carlo:
                 k += 1
         self.crds_a = np.zeros((self.n_a,2))
         self.crds_b = np.zeros((self.n_b,2))
+        x_blocks = int(np.sqrt(total_blocks))
+        y_blocks = int(np.sqrt(total_blocks))
+        # A blocks
+        block = 0
         count_a = 0
+        for i in range(num_block_a):
+            x = block%x_blocks
+            y = block//y_blocks
+            block_crd = np.array([x*block_dim,y*block_dim])
+            block_crds = block_a_crds + block_crd
+            for crd in block_crds:
+                self.crds_a[count_a,:] = crd
+                count_a += 1
+            block += 1
+        # A remainder blocks
+        for i in range(num_rem_block_a):
+            x = block%x_blocks
+            y = block//y_blocks
+            block_crd = np.array([x*block_dim,y*block_dim])
+            block_crds = block_a_crds + block_crd
+            for crd in block_crds[:remainder_block_a_capacity,:]:
+                self.crds_a[count_a,:] = crd
+                count_a += 1
+            block += 1
+        # B blocks
         count_b = 0
-        count_s = 0
-        count_ra = 0
-        count_rb = 0
-        type = 'a'
-        for i in range(int(np.sqrt(total_blocks))):
-            for j in range(int(np.sqrt(total_blocks))):
-                block_crd = np.array([j*block_dim,i*block_dim])
-                if type=='a':
-                    block_crds = block_a_crds + block_crd
-                    for crd in block_crds:
-                        self.crds_a[count_a,:] = crd
-                        count_a += 1
-                    if count_b < self.n_b:
-                        type = 'b'
-                    elif count_a < self.n_a:
-                        type = 'a'
-                    else:
-                        type = 's'
-                elif type=='b':
-                    block_crds = block_b_crds + block_crd
-                    for crd in block_crds:
-                        self.crds_b[count_b,:] = crd
-                        count_b += 1
-                    if count_a < self.n_a:
-                        type = 'a'
-                    elif count_b < self.n_b:
-                        type = 'b'
-                    else:
-                        type = 's'
-                else:
-                    if count_ra<num_rem_block_a:
-                        block_crds = block_a_crds + block_crd
-                        for crd in block_crds[:remainder_block_a_capacity,:]:
-                            self.crds_a[count_a,:] = crd
-                            count_a += 1
-                        count_ra += 1
-                    elif count_rb<num_rem_block_b:
-                        block_crds = block_b_crds + block_crd
-                        for crd in block_crds[:remainder_block_b_capacity,:]:
-                            self.crds_b[count_b,:] = crd
-                            count_b += 1
-                        count_rb += 1
-                    else:
-                        count_s += 1
+        for i in range(num_block_b):
+            x = block%x_blocks
+            y = block//y_blocks
+            block_crd = np.array([x*block_dim,y*block_dim])
+            block_crds = block_b_crds + block_crd
+            for crd in block_crds:
+                self.crds_b[count_b,:] = crd
+                count_b += 1
+            block += 1
+        # B remainder blocks
+        for i in range(num_rem_block_b):
+            x = block%x_blocks
+            y = block//y_blocks
+            block_crd = np.array([x*block_dim,y*block_dim])
+            block_crds = block_b_crds + block_crd
+            for crd in block_crds[:remainder_block_b_capacity,:]:
+                self.crds_b[count_b,:] = crd
+                count_b += 1
+            block += 1
         # Check no overlaps in starting configuration
         overlap = False
         for i in range(self.n_a):
@@ -160,8 +159,8 @@ class Binary_Colloid_Monte_Carlo:
                 break
         print('Overlap: {}'.format(overlap))
         print('------------------------------------------')
-        # if overlap:
-        #     sys.exit()
+        if overlap:
+            sys.exit()
 
 
     def hard_disc_overlap(self,ref_id,ref_type):
