@@ -95,7 +95,7 @@ class Colloid_Monte_Carlo:
         particle = self.random_generator.randint(0,self.n)
 
         # Get random displacement and trial coordinate
-        delta = self.random_generator.uniform(0.0,self.mc_max_trial_distance,size=2)
+        delta = self.random_generator.uniform(-self.mc_max_trial_distance,self.mc_max_trial_distance,size=2)
         prev_crd = np.zeros(2,dtype=float)
         prev_crd[:] = self.crds[particle,:]
         crd = prev_crd + delta

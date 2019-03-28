@@ -13,7 +13,7 @@ class Colloid_Voronoi:
         raise TypeError('Cannot instantiate base Voronoi class')
 
 
-    def network_analysis(self,assortative_mixing=True,aboav_weaire=True):
+    def network_analysis(self,assortative_mixing=True,aboav_weaire=True,entropy=True):
         """Analyse ring statistics and correlations"""
 
         # Ring statistics
@@ -38,7 +38,7 @@ class Colloid_Voronoi:
             return
 
         # Assortative mixing
-        if assortative_mixing or aboav_weaire:
+        if assortative_mixing or aboav_weaire or entropy:
             # Calculate correlation matrix
             self.e = np.zeros((self.k.size,self.k.size),dtype=float)
             for i,cnxs in enumerate(self.ring_connections):
@@ -76,6 +76,24 @@ class Colloid_Voronoi:
             self.aw[0] = 1.0-grad
             self.aw[1] = y_int - k1*k1
             self.aw[2] = r_value*r_value
+
+
+        # Shannon Entropy
+        if entropy:
+            p_k = self.p_k[self.p_k>0]
+            q_k = q[q>0]
+            e_jk = self.e[self.e>0]
+            qj_qk = np.zeros_like(self.e)
+            for i,k_i in enumerate(self.k):
+                for j,k_j in enumerate(self.k):
+                    qj_qk[i,j] = q[i]*q[j]
+            qj_qk = qj_qk[self.e>0]
+            self.h_p = -np.sum(p_k*np.log(p_k))
+            self.h_q = -np.sum(q_k*np.log(q_k))
+            self.h_e = -np.sum(e_jk*np.log(e_jk))
+            self.i_q = np.sum(e_jk*np.log(e_jk/qj_qk))
+            self.h_qq = self.h_q - self.i_q
+
 
 
     def voronoi_analysis(self):
@@ -301,6 +319,7 @@ if __name__ == "__main__":
     v.network_analysis()
     v.voronoi_analysis()
     print(v.a_est,v.aw[0],v.num_rings)
+    print(v.r,v.i_q)
     v.write()
 
 

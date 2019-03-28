@@ -21,8 +21,6 @@ class Binary_Colloid_Monte_Carlo:
         with open('./binary.inpt','r') as f:
             f.readline()
             self.output_prefix = f.readline().split()[0]
-            self.output_analysis_freq = int(f.readline().split()[0])
-            self.output_voronoi_freq = int(f.readline().split()[0])
             self.output_xyz_freq = int(f.readline().split()[0])
             f.readline()
             f.readline()
@@ -41,10 +39,10 @@ class Binary_Colloid_Monte_Carlo:
         self.n_b = self.n-self.n_a # Number of b
         self.sigma_a = 1.0 # Radius of a
         self.sigma_b = self.sigma_ratio*self.sigma_a # Radius of b
-        self.sigma_ab = 2.0*np.sqrt(self.sigma_a*self.sigma_b) # Non-additive interaction distance
-        self.hd_aa = self.sigma_a*self.sigma_a # Hard disc a-a squared interaction
-        self.hd_ab = self.sigma_ab*self.sigma_ab # Hard disc a-b squared interaction
-        self.hd_bb = self.sigma_b*self.sigma_b # Hard disc b-b squared interaction
+        self.sigma_ab = np.sqrt(self.sigma_a*self.sigma_b) # Non-additive interaction distance
+        self.hd_aa = (2.0*self.sigma_a)**2 # Hard disc a-a squared interaction
+        self.hd_ab = (2.0*self.sigma_ab)**2 # Hard disc a-b squared interaction
+        self.hd_bb = (2.0*self.sigma_b)**2 # Hard disc b-b squared interaction
         self.cell_area = ((self.n_a*np.pi*self.sigma_a**2)+(self.n_b*np.pi*self.sigma_b**2))/self.phi # Periodic cell area
         self.cell_length = np.sqrt(self.cell_area) # Periodic cell length
         self.phi_a = (self.n_a*np.pi*self.sigma_a**2)/self.cell_area # Partial packing fractions
@@ -56,6 +54,13 @@ class Binary_Colloid_Monte_Carlo:
         print('Packing fraction: T={}  A={}  B={}'.format(self.phi,self.phi_a,self.phi_b))
         print('Composition: {}'.format(self.q))
         print('------------------------------------------')
+
+        # Write aux file for analysis
+        with open('{}.aux'.format(self.output_prefix),'w') as f:
+            f.write('{}  {}  n_a n_b  \n'.format(self.n_a,self.n_b))
+            f.write('{}  {}  sig_a sig_b  \n'.format(self.sigma_a,self.sigma_b))
+            f.write('{}  cell length  \n'.format(self.cell_length))
+            f.write('{}  frames  \n'.format(self.mc_moves/self.output_xyz_freq+1))
 
 
     def initial_configuration(self):
@@ -150,13 +155,13 @@ class Binary_Colloid_Monte_Carlo:
         # Check no overlaps in starting configuration
         overlap = False
         for i in range(self.n_a):
+            if overlap:
+                break
             overlap = self.hard_disc_overlap(i,0)
-            if overlap:
-                break
         for i in range(self.n_b):
-            overlap = self.hard_disc_overlap(i,1)
             if overlap:
                 break
+            overlap = self.hard_disc_overlap(i,1)
         print('Overlap: {}'.format(overlap))
         print('------------------------------------------')
         if overlap:
@@ -171,10 +176,14 @@ class Binary_Colloid_Monte_Carlo:
             ref_crd = self.crds_a[ref_id,:]
             hd_a = self.hd_aa
             hd_b = self.hd_ab
+            a_lim = 1
+            b_lim = 0
         else:
             ref_crd = self.crds_b[ref_id,:]
             hd_a = self.hd_ab
             hd_b = self.hd_bb
+            a_lim = 0
+            b_lim = 1
 
         # Calculate distances to other particles of type a, applying minimum image convention
         dx_a = self.crds_a[:, 0] - ref_crd[0]
@@ -187,7 +196,7 @@ class Binary_Colloid_Monte_Carlo:
 
         # Check overlap and return if found
         overlap = False
-        if np.sum(d_sq_a < hd_a)>1:
+        if np.sum(d_sq_a < hd_a)>a_lim:
             overlap = True
             return overlap
 
@@ -201,7 +210,7 @@ class Binary_Colloid_Monte_Carlo:
         d_sq_b = dx_b * dx_b + dy_b * dy_b
 
         # Check overlap
-        if np.sum(d_sq_b < hd_b)>1:
+        if np.sum(d_sq_b < hd_b)>b_lim:
             overlap = True
 
         return overlap
@@ -217,7 +226,6 @@ class Binary_Colloid_Monte_Carlo:
         self.mc_acceptance = 0
 
         # Initialise output files
-        self.f_a = open('{}.dat'.format(self.output_prefix),'w')
         self.f_xyz = open('{}.xyz'.format(self.output_prefix),'w')
         self.write_xyz()
 
@@ -226,11 +234,10 @@ class Binary_Colloid_Monte_Carlo:
             self.monte_carlo_move()
             if i%self.output_xyz_freq==0:
                 self.write_xyz()
-            if i%1==0:
+            if i%1000==0:
                 print(i,self.mc_acceptance/i)
 
         # Close files
-        self.f_a.close()
         self.f_xyz.close()
 
 
@@ -299,8 +306,6 @@ class Binary_Colloid_Monte_Carlo:
             self.f_xyz.write('A  {:12.6f}  {:12.6f}  {:12.6f}  \n'.format(self.crds_a[i,0],self.crds_a[i,1],self.sigma_a))
         for i in range(self.n_b):
             self.f_xyz.write('B  {:12.6f}  {:12.6f}  {:12.6f}  \n'.format(self.crds_b[i,0],self.crds_b[i,1],self.sigma_b))
-
-
 
 
 
