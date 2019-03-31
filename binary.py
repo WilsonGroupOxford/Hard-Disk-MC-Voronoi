@@ -256,25 +256,38 @@ class Binary_Colloid_Monte_Carlo:
     def monte_carlo(self):
         """Perform Monte Carlo simulation"""
 
+        self.log('Monte Carlo Simulation')
+
         # Initialise Mersenne-Twister random number generator
+        self.log('Initialising random number generator')
         self.random_generator = np.random.RandomState(self.random_seed)
 
-        # Initialise Monte Carlo progress
-        self.mc_acceptance = 0
-
         # Initialise output files
+        self.log('Results will be written to: {}.xyz'.format(self.output_prefix))
         self.f_xyz = open('{}.xyz'.format(self.output_prefix),'w')
-        self.write_xyz()
 
-        # Perform required moves
-        for i in range(1,self.mc_moves+1):
+        # Perform equilibration moves
+        self.log('Equilibrating')
+        self.mc_acceptance = 0
+        for i in range(1,self.mc_eqm_moves+1):
+            self.monte_carlo_move()
+            if i%self.output_xyz_freq==0:
+                self.log('Moves: {}'.format(i),indent=1)
+                print('Moves: {}'.format(i))
+
+        # Perform sampling moves
+        self.log('Sampling')
+        self.mc_acceptance = 0
+        self.write_xyz()
+        for i in range(1,self.mc_sample_moves+1):
             self.monte_carlo_move()
             if i%self.output_xyz_freq==0:
                 self.write_xyz()
-            if i%1000==0:
-                print(i,self.mc_acceptance/i)
+                self.log('Moves and acceptance: {} {:4.3f}'.format(i,self.mc_acceptance/i),indent=1)
+                print('Moves and acceptance: {} {:4.3f}'.format(i,self.mc_acceptance/i))
 
         # Close files
+        self.log('Simulation complete',dash=True)
         self.f_xyz.close()
         self.log.close()
 

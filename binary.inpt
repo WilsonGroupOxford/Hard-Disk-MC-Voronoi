@@ -10,7 +10,7 @@ System Properties
 ---------------------------------------------------
 Monte Carlo
 0               random seed
-1000         equilibium moves
-1000         monte carlo moves
+10000000         equilibium moves
+10000000         monte carlo moves
 1.0             maximum move distance
 ---------------------------------------------------
