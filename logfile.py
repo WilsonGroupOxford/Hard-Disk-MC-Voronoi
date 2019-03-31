@@ -1,5 +1,6 @@
 """Simple log file class"""
 from datetime import datetime
+import sys
 
 class Logfile:
 
@@ -20,15 +21,24 @@ class Logfile:
         self.dashed_line()
 
 
-    def close(self):
+    def close(self,termination='normal'):
         """Close log file"""
 
         # Print footer
         self.time_end = datetime.now()
         time_delta = (self.time_end - self.time_start).total_seconds()
-        self.file.write('Process complete: {}  \n'.format(self.time_end.strftime('%H:%M:%S')))
+        self.file.write('Process completed with {} termination: {}  \n'.format(termination,self.time_end.strftime('%H:%M:%S')))
         self.file.write('Total run time: {} mins {} secs  \n'.format(*divmod(time_delta,60)))
         self.file.close()
+
+
+    def __call__(self,line,indent=0,dash=False):
+        """Write function as call for convenience"""
+
+        line = '{}{}  \n'.format(indent*self.indent,line)
+        self.file.write(line)
+        if dash:
+            self.dashed_line()
 
 
     def write(self,line,indent=0,dash=False):
@@ -38,6 +48,16 @@ class Logfile:
         self.file.write(line)
         if dash:
             self.dashed_line()
+
+
+    def error(self,message,type='critical'):
+        """Write error message and kill process if neccessary"""
+
+        if type=='critical':
+            self.file.write('Critical error: {}  \n'.format(message))
+            self.dashed_line()
+            self.close(termination='error')
+            sys.exit()
 
 
     def dashed_line(self):
