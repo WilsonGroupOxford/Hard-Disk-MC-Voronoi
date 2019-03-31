@@ -1,9 +1,7 @@
 """Binary non-additive hard disc monte carlo simulation"""
 import numpy as np
-import sys
 import os
 from logfile import Logfile
-from voronoi import Colloid_Periodic_Voronoi
 
 
 # Tolerances
