@@ -2,13 +2,17 @@ I/0
 ./test              input file prefix
 ---------------------------------------------------
 Processing
-0.0                 proportion of frames to cut
+0.999                 proportion of frames to cut
 ---------------------------------------------------
 Analysis types
-1       RDF
+0       RDF
+1       Network
 ---------------------------------------------------
 RDF Analysis
 0.05               bin size
 10                extent (n*r_b, defaults to L/2 if too large)
-
+---------------------------------------------------
+Network Analysis
+2       Partition type (0=Voronoi,1=Laguerre-Voronoi,2=Both&compare)
+---------------------------------------------------
 
