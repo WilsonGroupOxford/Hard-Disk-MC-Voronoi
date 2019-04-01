@@ -64,7 +64,7 @@ class Binary_Power:
         self.max_cnd = np.max(self.cnd)
 
 
-    def delaunay_node_distribution(self,k_lim=None):
+    def delaunay_node_distributions(self,k_lim=None):
         """Calculate Delaunay node distribution for each component and combined"""
 
         # Calculate k-range - use supplied limit if necessary (easier for analysis)
@@ -111,6 +111,164 @@ class Binary_Power:
     #
     #     return k,p_k,q_k,e_jk,warning
 
+    def power(self):
+        """Generates power diagram - more expensive and only for visualisation"""
+
+        # Regenerate polyhedron coordinates
+        polyhedron_crds = self.make_polyhedron_coordinates()
+
+        # Calculate power vertex coordinates
+        self.power_crds = []
+        for tri in self.hull_triangulation:
+            self.power_crds.append(self.power_circumcentre(polyhedron_crds[tri[0]],polyhedron_crds[tri[1]],polyhedron_crds[tri[2]]))
+        self.power_crds = np.array(self.power_crds)
+
+        # Generate map of triangles to power coordinate id
+        tri_power_map = {}
+        for i,tri in enumerate(self.hull_triangulation):
+            sorted_tri = np.sort(tri)
+            key = '#{}#{}#{}'.format(*sorted_tri)
+            tri_power_map[key] = i
+
+        # Generate particle neighbour list
+        n_crds = np.unique(self.hull_triangulation.flatten()).size # Account for (a)periodicity
+        unordered_nl = [[] for i in range(n_crds)]
+        for tri in self.hull_triangulation:
+            unordered_nl[tri[0]].append(tri[1])
+            unordered_nl[tri[0]].append(tri[2])
+            unordered_nl[tri[1]].append(tri[0])
+            unordered_nl[tri[1]].append(tri[2])
+            unordered_nl[tri[2]].append(tri[0])
+            unordered_nl[tri[2]].append(tri[1])
+        for i in range(n_crds):
+            unordered_nl[i] = np.array(np.unique(np.array(unordered_nl[i])),dtype=int)
+
+        # Order neighbour list by tracing path through neighbours
+        ordered_nl = []
+        edges = np.zeros(n_crds,dtype=bool)
+        for i in range(n_crds):
+            nl = unordered_nl[i]
+            pairs = []
+            edge = False
+            multi_cnx = False
+            for j in nl:
+                pair = np.intersect1d(nl,unordered_nl[j])
+                if pair.size==1:
+                    edge = True
+                    break
+                elif pair.size==2:
+                    pairs.append(pair)
+                elif pair.size==3:
+                    multi_cnx = True
+                    pairs.append(pair)
+                else:
+                    print("Warning: algorithm failure")
+            if edge:
+                ordered_nl.append(np.array([]))
+                edges[i] = 1
+            else:
+                if multi_cnx:
+                    triples = []
+                    triple_pos = []
+                    for j,pair in enumerate(pairs):
+                        if pair.size == 3:
+                            triples.append(pair)
+                            triple_pos.append(j)
+                    for j,triple_a in enumerate(triples):
+                        for k,triple_b in enumerate(triples):
+                            link = np.intersect1d(triple_a,triple_b)
+                            if link.size == 1:
+                                triple_a = triple_a[triple_a!=nl[triple_pos[k]]]
+                                break
+                        if triple_a.size!=2:
+                            print("Warning: algorithm failure")
+                            sys.exit()
+                        pairs[triple_pos[j]] = triple_a[:]
+                pairs = np.array(pairs)
+                for j,val in enumerate(nl):
+                    pairs[pairs==val] = j
+                path = np.zeros_like(nl)
+                path_nl = np.zeros_like(nl)
+                path_nl[0] = nl[0]
+                for j in range(1,path.size):
+                    a,b = pairs[path[j-1]]
+                    if a not in path:
+                        path[j]=a
+                        path_nl[j]=nl[a]
+                    else:
+                        path[j]=b
+                        path_nl[j]=nl[b]
+                ordered_nl.append(np.array(path_nl))
+
+        # Generate power polygons
+        power_polygons = []
+        for i,nl in enumerate(ordered_nl):
+            crd_ids = []
+            for j in range(-1,nl.size-1):
+                tri = np.sort([i,nl[j],nl[j+1]])
+                key = '#{}#{}#{}'.format(*tri)
+                crd_ids.append(tri_power_map[key])
+            power_polygons.append(np.array(crd_ids,dtype=int))
+
+        # Add to edge particles any whose poylgon extends beyond cell limits
+        cell_limits = self.cell_limits
+        cell_limits[:,0]-=10
+        cell_limits[:,1]+=10
+        for i,poly in enumerate(power_polygons):
+            crds = self.power_crds[poly]
+            if np.any(crds[:,0]<cell_limits[0,0]):
+                edges[i] = 1
+            elif np.any(crds[:,0]>cell_limits[0,1]):
+                edges[i] = 1
+            elif np.any(crds[:,1]<cell_limits[1,0]):
+                edges[i] = 1
+            elif np.any(crds[:,1]>cell_limits[1,1]):
+                edges[i] = 1
+
+        # Only include polygons not on edges
+        self.power_polygons = []
+        for i,poly in enumerate(power_polygons):
+            if edges[i]==0:
+                self.power_polygons.append(poly)
+
+
+    def power_circumcentre(self,a,b,c):
+        normal = np.cross(a,b)+np.cross(b,c)+np.cross(c,a)
+        unit_normal = normal/np.sum(normal**2)
+        return (-0.5 / unit_normal[2]) * unit_normal[:2]
+
+
+    def visualise(self,ax=None,particles=True,polygons=True):
+        """Visualise power diagram and particle positions"""
+
+        if ax is None:
+            params = {"figure.figsize": (5, 5)}
+            pylab.rcParams.update(params)
+            fig, ax = plt.subplots()
+
+        if particles:
+            patches_a = []
+            patches_b = []
+            for c in self.crds_a:
+                patches_a.append(Circle(c,radius=self.r_a))
+            for c in self.crds_b:
+                patches_b.append(Circle(c,radius=self.r_b))
+            ax.add_collection(PatchCollection(patches_a,facecolor='blue',alpha=0.5))
+            ax.add_collection(PatchCollection(patches_b,facecolor='red',alpha=0.5))
+            # self.ax.scatter(self.particle_crds[:,0],self.particle_crds[:,1],color='k',s=5)
+        if polygons:
+            patches_p = []
+            for i,p in enumerate(self.power_polygons):
+                if p.size>0:
+                    patches_p.append(Polygon(self.power_crds[p],True))
+            ax.add_collection(PatchCollection(patches_p,facecolor=(0,0,0,0),edgecolor='k'))
+
+        ax.set_xlim(self.cell_limits[0])
+        ax.set_ylim(self.cell_limits[1])
+
+        return ax
+
+
 
 class Periodic_Binary_Power(Binary_Power):
     """Periodic power diagram for binary system"""
@@ -125,6 +283,7 @@ class Periodic_Binary_Power(Binary_Power):
         self.r_a = r_a
         self.r_b = r_b
         self.cell_length = cell_length
+        self.cell_limits = np.array([[0,cell_length],[0,cell_length]])
         self.n_a = self.crds_a[:,0].size
         self.n_b = self.crds_b[:,0].size
         self.n = self.n_a + self.n_b
@@ -142,6 +301,7 @@ class Periodic_Binary_Power(Binary_Power):
         self.crds -= centre_of_mass
         self.crds_a -= centre_of_mass
         self.crds_b -= centre_of_mass
+        self.cell_limits -= centre_of_mass
 
 
     def make_polyhedron_coordinates(self):
@@ -165,7 +325,7 @@ class Periodic_Binary_Power(Binary_Power):
         for i in range(9):
             n = i*self.n
             m = (i+1)*self.n
-            polyhedron_crds[n:m,2] = np.sum(polyhedron_crds[n:m,:2]**2,axis=1)-self.r
+            polyhedron_crds[n:m,2] = np.sum(polyhedron_crds[n:m,:2]**2,axis=1)-self.r**2
 
         return polyhedron_crds
 

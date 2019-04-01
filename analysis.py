@@ -1,9 +1,9 @@
 """"Analyse binary non-additive hard disc monte carlo simulation"""
 import os
 import numpy as np
+import matplotlib.pyplot as plt
 from scipy.stats import entropy
 from logfile import Logfile
-from mpl_scipub import DataSet,Plot
 from binary_power import Periodic_Binary_Power
 
 class Sample:
@@ -71,6 +71,7 @@ class Sample:
             l = f.readline().split()
             self.cell_length = float(f.readline().split()[0])
             self.frames_total = int(float(f.readline().split()[0]))
+        self.n = self.n_a+self.n_b
         self.frames_cut = int(self.frames_total*self.cut_proportion)
         self.frames = self.frames_total - self.frames_cut
         self.ndensity_a = self.n_a / (self.cell_length**2)
@@ -108,6 +109,7 @@ class Sample:
             self.analyse_rdf()
         if self.analysis_net:
             self.analyse_network()
+        self.log('Analysis complete')
 
 
     def analyse_rdf(self):
@@ -186,20 +188,6 @@ class Sample:
         self.log('RDFs written to files',indent=1)
 
 
-        aa = DataSet(x=rdf_aa[:,0],y=rdf_aa[:,1])
-        bb = DataSet(x=rdf_bb[:,0],y=rdf_bb[:,1])
-        ab = DataSet(x=rdf_ab[:,0],y=rdf_ab[:,1])
-        t = DataSet(x=rdf_tot[:,0],y=rdf_tot[:,1])
-
-        plot=Plot()
-        plot.add_dataset(aa)
-        plot.add_dataset(bb)
-        plot.add_dataset(ab)
-        plot.add_dataset(t)
-        plot.plot()
-        plot.display()
-
-
     def analyse_network(self):
         """Partition space to determine neighbours and perform network analysis"""
 
@@ -207,33 +195,124 @@ class Sample:
         self.log('Network Analysis',indent=0)
 
         # Voronoi i.e. unweighted Laguerre-Voronoi
-        if self.net_partition != 1:
+        if self.net_partition==0:
             self.log('Voronoi Partition',indent=1)
+            f=open('{}_vringstats.dat'.format(self.prefix),'w')
             for frame in range(self.frames):
+                print(frame)
                 crds_a = self.crds_a[frame]
                 crds_b = self.crds_b[frame]
-                # Make Voronoi diagram and calculate Delaunay triangulation
-                v_partition = Periodic_Binary_Power(crds_a,crds_b,0.0,0.0,self.cell_length)
-                v_partition.delaunay()
-                v_node_distributions,warning = v_partition.delaunay_node_distribution(k_lim=20)
-                if warning:
-                    self.log.error('Coordination number exceeded maximum expected - set higher')
+                v_distributions = self.laguerre_voronoi(crds_a,crds_b)
+                v_dist_a,v_dist_b,v_dist_t = self.characterise_node_distributions(v_distributions)
+                vtvd_ab = self.total_variation_distance(v_distributions['p_ka'],v_distributions['p_kb'])
+                f.write(('{:8.6f}  '*3).format(*v_dist_a))
+                f.write(('{:8.6f}  '*3).format(*v_dist_b))
+                f.write(('{:8.6f}  '*3).format(*v_dist_t))
+                f.write('{:8.6f}  '.format(vtvd_ab))
+                f.write('\n')
+            f.close()
         # Laguerre-Voronoi
-        elif self.net_partition != 0:
+        elif self.net_partition==1:
             self.log('Laguerre-Voronoi Partition',indent=1)
             # Calculate weights
             lv_ra = 2.0*self.r_a*np.sqrt(self.r_a*self.r_b)/(self.r_a+self.r_b)
             lv_rb = 2.0*np.sqrt(self.r_a*self.r_b)*(1.0-self.r_a/(self.r_a+self.r_b))
             self.log('Voronoi weights (a,b): {:6.4f} {:6.4f}'.format(lv_ra,lv_rb),indent=2)
+            f=open('{}_lvringstats.dat'.format(self.prefix),'w')
             for frame in range(self.frames):
+                print(frame)
                 crds_a = self.crds_a[frame]
                 crds_b = self.crds_b[frame]
-                # Make power diagram, calculate Delaunay triangulation, and get ring/edge statistics
-                lv_partition = Periodic_Binary_Power(crds_a,crds_b,lv_ra,lv_rb,self.cell_length)
-                lv_partition.delaunay()
-                lv_node_distributions,warning = lv_partition.delaunay_node_distribution(k_lim=20)
-                if warning:
-                    self.log.error('Coordination number exceeded maximum expected - set higher')
+                lv_distributions = self.laguerre_voronoi(crds_a,crds_b,w_a=lv_ra,w_b=lv_rb)
+                lv_dist_a,lv_dist_b,lv_dist_t = self.characterise_node_distributions(lv_distributions)
+                lvtvd_ab = self.total_variation_distance(lv_distributions['p_ka'],lv_distributions['p_kb'])
+                f.write(('{:8.6f}  '*3).format(*lv_dist_a))
+                f.write(('{:8.6f}  '*3).format(*lv_dist_b))
+                f.write(('{:8.6f}  '*3).format(*lv_dist_t))
+                f.write('{:8.6f}  '.format(lvtvd_ab))
+                f.write('\n')
+            f.close()
+        # Both and compare
+        elif self.net_partition==2:
+            self.log('Voronoi vs Laguerre-Voronoi Partition',indent=1)
+            # Calculate weights
+            lv_ra = 2.0*self.r_a*np.sqrt(self.r_a*self.r_b)/(self.r_a+self.r_b)
+            lv_rb = 2.0*np.sqrt(self.r_a*self.r_b)*(1.0-self.r_a/(self.r_a+self.r_b))
+            self.log('Voronoi weights (a,b): {:6.4f} {:6.4f}'.format(lv_ra,lv_rb),indent=2)
+            f=open('{}_vlvringstats.dat'.format(self.prefix),'w')
+            for frame in range(self.frames):
+                print(frame)
+                crds_a = self.crds_a[frame]
+                crds_b = self.crds_b[frame]
+                v_distributions = self.laguerre_voronoi(crds_a,crds_b)
+                v_dist_a,v_dist_b,v_dist_t = self.characterise_node_distributions(v_distributions)
+                vtvd_ab = self.total_variation_distance(v_distributions['p_ka'],v_distributions['p_kb'])
+                lv_distributions = self.laguerre_voronoi(crds_a,crds_b,w_a=lv_ra,w_b=lv_rb)
+                lv_dist_a,lv_dist_b,lv_dist_t = self.characterise_node_distributions(lv_distributions)
+                lvtvd_ab = self.total_variation_distance(lv_distributions['p_ka'],lv_distributions['p_kb'])
+                tvd_aa = self.total_variation_distance(v_distributions['p_ka'],lv_distributions['p_ka'])
+                tvd_bb = self.total_variation_distance(v_distributions['p_kb'],lv_distributions['p_kb'])
+                tvd_tt = self.total_variation_distance(v_distributions['p_kt'],lv_distributions['p_kt'])
+                f.write(('{:8.6f}  '*3).format(*v_dist_a))
+                f.write(('{:8.6f}  '*3).format(*v_dist_b))
+                f.write(('{:8.6f}  '*3).format(*v_dist_t))
+                f.write('{:8.6f}  '.format(vtvd_ab))
+                f.write(('{:8.6f}  '*3).format(*lv_dist_a))
+                f.write(('{:8.6f}  '*3).format(*lv_dist_b))
+                f.write(('{:8.6f}  '*3).format(*lv_dist_t))
+                f.write('{:8.6f}  '.format(lvtvd_ab))
+                f.write(('{:8.6f}  '*3).format(tvd_aa,tvd_bb,tvd_tt))
+                f.write('\n')
+            f.close()
+        self.log('Ring statistics written to files',indent=1)
+
+
+    def laguerre_voronoi(self,crds_a,crds_b,w_a=0.0,w_b=0.0):
+        """Calculate Laguerre-Voronoi diagram and node distribution"""
+
+        diagram = Periodic_Binary_Power(crds_a,crds_b,w_a,w_b,self.cell_length)
+        diagram.delaunay()
+        # diagram.power()
+        # ax=diagram.visualise()
+        # plt.show()
+        node_distributions,warning = diagram.delaunay_node_distributions(k_lim=20)
+        if warning:
+            self.log.error('Coordination number exceeded maximum expected - set higher')
+
+        return node_distributions
+
+
+    def characterise_node_distributions(self,distributions):
+        """Calculate p6,mean,variance of partial and total distributions"""
+
+        # Unpack dictionary containing partial and total distributions
+        k = distributions['k']
+        p_ka = distributions['p_ka']
+        p_kb = distributions['p_kb']
+        p_kt = distributions['p_kt']
+
+        # Initialise distribution summaries
+        dist_a = np.zeros(3,dtype=float)
+        dist_b = np.zeros(3,dtype=float)
+        dist_t = np.zeros(3,dtype=float)
+
+        # Proportion of hexagons
+        dist_a[0] = p_ka[k==6]
+        dist_b[0] = p_kb[k==6]
+        dist_t[0] = p_kt[k==6]
+
+        # Mean
+        dist_a[1] = (k*p_ka).sum()
+        dist_b[1] = (k*p_kb).sum()
+        dist_t[1] = (k*p_kt).sum()
+
+        # Variance
+        dist_a[2] = (k*k*p_ka).sum()-dist_a[1]**2
+        dist_b[2] = (k*k*p_kb).sum()-dist_b[1]**2
+        dist_t[2] = (k*k*p_kt).sum()-dist_t[1]**2
+
+        return dist_a,dist_b,dist_t
+
 
     def total_variation_distance(self,p_a,p_b):
         """Calculate total variation distance between two distributions"""
