@@ -13,6 +13,6 @@ RDF Analysis
 10                extent (n*r_b, defaults to L/2 if too large)
 ---------------------------------------------------
 Network Analysis
-1       Partition type (0=Voronoi,1=Laguerre-Voronoi,2=Both&compare)
+0       Partition type (0=Voronoi,1=Laguerre-Voronoi/Power)
 ---------------------------------------------------
 

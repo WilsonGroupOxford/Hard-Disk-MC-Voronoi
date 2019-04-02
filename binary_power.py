@@ -83,33 +83,43 @@ class Binary_Power:
         for i,j in enumerate(k):
             p_ka[i] = (cnds_a==j).sum()
             p_kb[i] = (cnds_b==j).sum()
-        p_kt = p_ka+p_kb
+        p_kc = p_ka+p_kb
         p_ka /= p_ka.sum()
         p_kb /= p_kb.sum()
-        p_kt /= p_kt.sum()
+        p_kc /= p_kc.sum()
 
         # Pack into dictionary
-        node_dist = {'k':k,'p_ka':p_ka,'p_kb':p_kb,'p_kt':p_kt}
+        node_dist = {'k':k,'p_ka':p_ka,'p_kb':p_kb,'p_kc':p_kc}
 
         return node_dist,warning
 
 
-    # def delaunay_node_distributions(self,k_lim=None):
-    #     """Calculate Delaunay node distribution, edge distribution and joint-edge distribution"""
-    #
-    #
-    #
-    #     # Calculate edge distributions
-    #     e_jk = np.zeros((k_lim+1,k_lim+1))
-    #     for i,nl in enumerate(self.neighbour_list):
-    #         k_i = num_cnxs[i]
-    #         for j in nl:
-    #             k_j = num_cnxs[j]
-    #             e_jk[k_i,k_j] += 1
-    #     e_jk /= e_jk.sum()
-    #     q_k = np.sum(e_jk,axis=1)
-    #
-    #     return k,p_k,q_k,e_jk,warning
+    def delaunay_edge_distributions(self,k_lim=None):
+        """Calculate Delaunay edge distribution and joint-edge distribution"""
+
+        # Calculate k-range - use supplied limit if necessary (easier for analysis)
+        warning = False
+        if k_lim is None:
+            k_lim = self.max_cnd
+        elif self.max_cnd>k_lim:
+            warning = True
+        k = np.arange(k_lim+1,dtype=int)
+
+        # Calculate edge distributions
+        e_jk = np.zeros((k_lim+1,k_lim+1))
+        for i,nl in enumerate(self.neighbour_list):
+            k_i = self.cnd[i]
+            for j in nl:
+                k_j = self.cnd[j]
+                e_jk[k_i,k_j] += 1
+        e_jk /= e_jk.sum()
+        q_k = np.sum(e_jk,axis=1)
+
+        # Pack into dictionary
+        edge_dist = {'k':k,'q_k':q_k,'e_jk':e_jk}
+
+        return edge_dist,warning
+
 
     def power(self):
         """Generates power diagram - more expensive and only for visualisation"""

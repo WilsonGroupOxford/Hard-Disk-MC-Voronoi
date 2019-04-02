@@ -54,10 +54,10 @@ class Sample:
         """Read auxilary and coordinate files from simulation"""
 
         # Check if simulation files exist in current directory, if not kill process
-        if not os.path.isfile('./{}.aux'.format(self.prefix)):
-            self.log.error('Cannot find simulation file "{}.aux" in current directory'.format(self.prefix))
-        if not os.path.isfile('./{}.xyz'.format(self.prefix)):
-            self.log.error('Cannot find simulation file "{}.xyz" in current directory'.format(self.prefix))
+        if not os.path.isfile('{}.aux'.format(self.prefix)):
+            self.log.error('Cannot find simulation file "{}.aux"'.format(self.prefix))
+        if not os.path.isfile('{}.xyz'.format(self.prefix)):
+            self.log.error('Cannot find simulation file "{}.xyz"'.format(self.prefix))
 
         # Read aux file and get simulation parameters
         self.log('Reading simulation auxilary file')
@@ -191,133 +191,137 @@ class Sample:
     def analyse_network(self):
         """Partition space to determine neighbours and perform network analysis"""
 
-        # Partition type: 0 Voronoi, 1 Power/Laguerre-Voronoi, 2 Both
+        # Parameters based on partition type: 0 Voronoi, 1 Power/Laguerre-Voronoi
         self.log('Network Analysis',indent=0)
-
-        # Voronoi i.e. unweighted Laguerre-Voronoi
         if self.net_partition==0:
             self.log('Voronoi Partition',indent=1)
-            f=open('{}_vringstats.dat'.format(self.prefix),'w')
-            for frame in range(self.frames):
-                print(frame)
-                crds_a = self.crds_a[frame]
-                crds_b = self.crds_b[frame]
-                v_distributions = self.laguerre_voronoi(crds_a,crds_b)
-                v_dist_a,v_dist_b,v_dist_t = self.characterise_node_distributions(v_distributions)
-                vtvd_ab = self.total_variation_distance(v_distributions['p_ka'],v_distributions['p_kb'])
-                f.write(('{:8.6f}  '*3).format(*v_dist_a))
-                f.write(('{:8.6f}  '*3).format(*v_dist_b))
-                f.write(('{:8.6f}  '*3).format(*v_dist_t))
-                f.write('{:8.6f}  '.format(vtvd_ab))
-                f.write('\n')
-            f.close()
-        # Laguerre-Voronoi
+            f_a = open('{}_vor_a.dat'.format(self.prefix),'w')
+            f_b = open('{}_vor_b.dat'.format(self.prefix),'w')
+            f_c = open('{}_vor_c.dat'.format(self.prefix),'w')
+            f_e = open('{}_vor_e.dat'.format(self.prefix),'w')
+            f_s = open('{}_vor_summary.dat'.format(self.prefix),'w')
+            weight_a = 0.0
+            weight_b = 0.0
         elif self.net_partition==1:
-            self.log('Laguerre-Voronoi Partition',indent=1)
-            # Calculate weights
-            lv_ra = 2.0*self.r_a*np.sqrt(self.r_a*self.r_b)/(self.r_a+self.r_b)
-            lv_rb = 2.0*np.sqrt(self.r_a*self.r_b)*(1.0-self.r_a/(self.r_a+self.r_b))
-            self.log('Voronoi weights (a,b): {:6.4f} {:6.4f}'.format(lv_ra,lv_rb),indent=2)
-            f=open('{}_lvringstats.dat'.format(self.prefix),'w')
-            for frame in range(self.frames):
-                print(frame)
-                crds_a = self.crds_a[frame]
-                crds_b = self.crds_b[frame]
-                lv_distributions = self.laguerre_voronoi(crds_a,crds_b,w_a=lv_ra,w_b=lv_rb)
-                lv_dist_a,lv_dist_b,lv_dist_t = self.characterise_node_distributions(lv_distributions)
-                lvtvd_ab = self.total_variation_distance(lv_distributions['p_ka'],lv_distributions['p_kb'])
-                f.write(('{:8.6f}  '*3).format(*lv_dist_a))
-                f.write(('{:8.6f}  '*3).format(*lv_dist_b))
-                f.write(('{:8.6f}  '*3).format(*lv_dist_t))
-                f.write('{:8.6f}  '.format(lvtvd_ab))
-                f.write('\n')
-            f.close()
-        # Both and compare
-        elif self.net_partition==2:
-            self.log('Voronoi vs Laguerre-Voronoi Partition',indent=1)
-            # Calculate weights
-            lv_ra = 2.0*self.r_a*np.sqrt(self.r_a*self.r_b)/(self.r_a+self.r_b)
-            lv_rb = 2.0*np.sqrt(self.r_a*self.r_b)*(1.0-self.r_a/(self.r_a+self.r_b))
-            self.log('Voronoi weights (a,b): {:6.4f} {:6.4f}'.format(lv_ra,lv_rb),indent=2)
-            f=open('{}_vlvringstats.dat'.format(self.prefix),'w')
-            for frame in range(self.frames):
-                print(frame)
-                crds_a = self.crds_a[frame]
-                crds_b = self.crds_b[frame]
-                v_distributions = self.laguerre_voronoi(crds_a,crds_b)
-                v_dist_a,v_dist_b,v_dist_t = self.characterise_node_distributions(v_distributions)
-                vtvd_ab = self.total_variation_distance(v_distributions['p_ka'],v_distributions['p_kb'])
-                lv_distributions = self.laguerre_voronoi(crds_a,crds_b,w_a=lv_ra,w_b=lv_rb)
-                lv_dist_a,lv_dist_b,lv_dist_t = self.characterise_node_distributions(lv_distributions)
-                lvtvd_ab = self.total_variation_distance(lv_distributions['p_ka'],lv_distributions['p_kb'])
-                tvd_aa = self.total_variation_distance(v_distributions['p_ka'],lv_distributions['p_ka'])
-                tvd_bb = self.total_variation_distance(v_distributions['p_kb'],lv_distributions['p_kb'])
-                tvd_tt = self.total_variation_distance(v_distributions['p_kt'],lv_distributions['p_kt'])
-                f.write(('{:8.6f}  '*3).format(*v_dist_a))
-                f.write(('{:8.6f}  '*3).format(*v_dist_b))
-                f.write(('{:8.6f}  '*3).format(*v_dist_t))
-                f.write('{:8.6f}  '.format(vtvd_ab))
-                f.write(('{:8.6f}  '*3).format(*lv_dist_a))
-                f.write(('{:8.6f}  '*3).format(*lv_dist_b))
-                f.write(('{:8.6f}  '*3).format(*lv_dist_t))
-                f.write('{:8.6f}  '.format(lvtvd_ab))
-                f.write(('{:8.6f}  '*3).format(tvd_aa,tvd_bb,tvd_tt))
-                f.write('\n')
-            f.close()
-        self.log('Ring statistics written to files',indent=1)
+            self.log('Power Partition',indent=1)
+            f_a = open('{}_pow_a.dat'.format(self.prefix),'w')
+            f_b = open('{}_pow_b.dat'.format(self.prefix),'w')
+            f_c = open('{}_pow_c.dat'.format(self.prefix),'w')
+            f_e = open('{}_pow_e.dat'.format(self.prefix),'w')
+            f_s = open('{}_pow_summary.dat'.format(self.prefix),'w')
+            weight_a = 2.0*self.r_a*np.sqrt(self.r_a*self.r_b)/(self.r_a+self.r_b)
+            weight_b = 2.0*np.sqrt(self.r_a*self.r_b)*(1.0-self.r_a/(self.r_a+self.r_b))
+        self.log('Weights (a,b): {:6.4f} {:6.4f}'.format(weight_a,weight_b),indent=2)
+
+        # Set up total distributions i.e. using all frames
+        k_max1 = 51
+        k = np.arange(0,k_max1) # Limit ring sizes to 21 - increase this if get warning
+        total_p_ka = np.zeros(k_max1)
+        total_p_kb = np.zeros(k_max1)
+        total_p_kc = np.zeros(k_max1)
+        total_ejk = np.zeros((k_max1,k_max1))
+
+        # Loop over frames, calculate diagram, extract distributions and calculate metrics
+        for frame in range(self.frames):
+            # Calculate diagram
+            crds_a = self.crds_a[frame]
+            crds_b = self.crds_b[frame]
+            p_ka, p_kb, p_kc, e_jk = self.laguerre_voronoi(crds_a,crds_b,w_a=weight_a,w_b=weight_b)
+            # Update total distributions
+            total_p_ka += p_ka
+            total_p_kb += p_kb
+            total_p_kc += p_kc
+            total_ejk += e_jk
+            # Write frame distribution summaries
+            dist_a = self.summarise_distribution(k,p_ka)
+            dist_b = self.summarise_distribution(k,p_kb)
+            dist_c = self.summarise_distribution(k,p_kc)
+            dist_e = self.summarise_joint_distribution(k,e_jk)
+            f_a.write(('{:8.6f}  '*4+'\n').format(*dist_a))
+            f_b.write(('{:8.6f}  '*4+'\n').format(*dist_b))
+            f_c.write(('{:8.6f}  '*4+'\n').format(*dist_c))
+            f_e.write(('{:8.6f}  '*4+'\n').format(*dist_e))
+
+        # Normalise total distributions and make summary file
+        total_p_ka /= total_p_ka.sum()
+        total_p_kb /= total_p_kb.sum()
+        total_p_kc /= total_p_kc.sum()
+        total_ejk /= total_ejk.sum()
+        dist_a = self.summarise_distribution(k,total_p_ka)
+        dist_b = self.summarise_distribution(k,total_p_kb)
+        dist_c = self.summarise_distribution(k,total_p_kc)
+        dist_e = self.summarise_joint_distribution(k,total_ejk)
+        f_s.write(('{:8.6f}  '*4+'\n').format(*dist_a))
+        f_s.write(('{:8.6f}  '*4+'\n').format(*dist_b))
+        f_s.write(('{:8.6f}  '*4+'\n').format(*dist_c))
+        f_s.write(('{:8.6f}  '*4+'\n').format(*dist_e))
+
+        # Close files
+        f_a.close()
+        f_b.close()
+        f_c.close()
+        f_e.close()
+        f_s.close()
+        self.log('Network analysis written to files',indent=1)
 
 
     def laguerre_voronoi(self,crds_a,crds_b,w_a=0.0,w_b=0.0):
         """Calculate Laguerre-Voronoi diagram and node distribution"""
 
+        # Calcualte diagram
         diagram = Periodic_Binary_Power(crds_a,crds_b,w_a,w_b,self.cell_length)
         diagram.delaunay()
-        # diagram.power()
-        # ax=diagram.visualise()
-        # plt.show()
-        node_distributions,warning = diagram.delaunay_node_distributions(k_lim=20)
-        if warning:
+
+        # Extract distributions
+        node_distributions,warning_n = diagram.delaunay_node_distributions(k_lim=50)
+        edge_distributions,warning_e = diagram.delaunay_edge_distributions(k_lim=50)
+        if warning_n or warning_e:
             self.log.error('Coordination number exceeded maximum expected - set higher')
+        p_ka = node_distributions['p_ka']
+        p_kb = node_distributions['p_kb']
+        p_kc = node_distributions['p_kc']
+        e_jk = edge_distributions['e_jk']
 
-        return node_distributions
-
-
-    def characterise_node_distributions(self,distributions):
-        """Calculate p6,mean,variance of partial and total distributions"""
-
-        # Unpack dictionary containing partial and total distributions
-        k = distributions['k']
-        p_ka = distributions['p_ka']
-        p_kb = distributions['p_kb']
-        p_kt = distributions['p_kt']
-
-        # Initialise distribution summaries
-        dist_a = np.zeros(3,dtype=float)
-        dist_b = np.zeros(3,dtype=float)
-        dist_t = np.zeros(3,dtype=float)
-
-        # Proportion of hexagons
-        dist_a[0] = p_ka[k==6]
-        dist_b[0] = p_kb[k==6]
-        dist_t[0] = p_kt[k==6]
-
-        # Mean
-        dist_a[1] = (k*p_ka).sum()
-        dist_b[1] = (k*p_kb).sum()
-        dist_t[1] = (k*p_kt).sum()
-
-        # Variance
-        dist_a[2] = (k*k*p_ka).sum()-dist_a[1]**2
-        dist_b[2] = (k*k*p_kb).sum()-dist_b[1]**2
-        dist_t[2] = (k*k*p_kt).sum()-dist_t[1]**2
-
-        return dist_a,dist_b,dist_t
+        return p_ka,p_kb,p_kc,e_jk
 
 
-    def total_variation_distance(self,p_a,p_b):
-        """Calculate total variation distance between two distributions"""
+    def summarise_distribution(self,k,p_k):
+        """Calculate mean, variance, proportion of hexagons and entropy"""
 
-        return 0.5*np.sum(np.abs(p_a-p_b))
+        mean = np.sum(k*p_k)
+        var = np.sum(k*k*p_k)-mean*mean
+        p6 = p_k[k==6]
+        p = p_k[p_k>0]
+        s = -np.sum(p*np.log(p))
+
+        return np.array([mean,var,p6,s])
+
+
+    def summarise_joint_distribution(self,k,e_jk):
+
+        # Set up additional quantities
+        q_k = np.sum(e_jk,axis=1)
+        qq = np.zeros_like(e_jk)
+        kk = np.zeros_like(e_jk)
+        for i,k_i in enumerate(k):
+            for j,k_j in enumerate(k):
+                kk[i,j] = k_i*k_j
+                qq[i,j] = q_k[i]*q_k[j]
+
+        # Assortativity
+        r = np.sum(kk*(e_jk-qq))
+        ss = np.sum(k*k*q_k)-np.sum(k*q_k)**2
+        r/=ss
+
+        # Entropy of edge distribution, joint distribution and information transfer
+        q = q_k[q_k>0]
+        e = e_jk[e_jk>0]
+        qq = qq[e_jk>0]
+        s0 = -np.sum(q*np.log(q))
+        s1 = -np.sum(e*np.log(e))
+        it = np.sum(e*np.log(e/qq))
+
+        return np.array([r,s0,s1,it])
 
 
 if __name__ == '__main__':
