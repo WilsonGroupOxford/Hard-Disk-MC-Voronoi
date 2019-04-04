@@ -1,16 +1,15 @@
 I/0
-./test_mono          output file prefix
+./test_defect          output file prefix
 10000               write .xyz frequency
 ---------------------------------------------------
 System Properties
-1000           number of colloid particles
-1.0             size ratio (gamma=r_l/r_s)
+100           number of colloid particles
+2.0             size ratio (gamma=r_l/r_s)
 0.0             composition (q=phi_l/phi_t)
-0.1             total packing fraction
+0.01             total packing fraction
 ---------------------------------------------------
 Monte Carlo
 0               random seed
-10         equilibium moves
-10         monte carlo moves
-1.0             maximum move distance
+1000000         equilibrium moves
+100000         monte carlo moves
 ---------------------------------------------------

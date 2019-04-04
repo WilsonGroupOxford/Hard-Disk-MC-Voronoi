@@ -288,8 +288,10 @@ class Periodic_Binary_Power(Binary_Power):
         """Initialise with particle coordinates, radii and periodicity information"""
 
         # Get input variables
-        self.crds_a = crds_a
-        self.crds_b = crds_b
+        self.crds_a = np.zeros_like(crds_a)
+        self.crds_b = np.zeros_like(crds_b)
+        self.crds_a[:,:] = crds_a
+        self.crds_b[:,:] = crds_b
         self.r_a = r_a
         self.r_b = r_b
         self.cell_length = cell_length

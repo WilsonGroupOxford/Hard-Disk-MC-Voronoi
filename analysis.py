@@ -1,8 +1,6 @@
 """"Analyse binary non-additive hard disc monte carlo simulation"""
 import os
 import numpy as np
-import matplotlib.pyplot as plt
-from scipy.stats import entropy
 from logfile import Logfile
 from binary_power import Periodic_Binary_Power
 
@@ -198,6 +196,7 @@ class Sample:
             f_a = open('{}_vor_a.dat'.format(self.prefix),'w')
             f_b = open('{}_vor_b.dat'.format(self.prefix),'w')
             f_c = open('{}_vor_c.dat'.format(self.prefix),'w')
+            f_d = open('{}_vor_d.dat'.format(self.prefix),'w')
             f_e = open('{}_vor_e.dat'.format(self.prefix),'w')
             f_s = open('{}_vor_summary.dat'.format(self.prefix),'w')
             weight_a = 0.0
@@ -207,6 +206,7 @@ class Sample:
             f_a = open('{}_pow_a.dat'.format(self.prefix),'w')
             f_b = open('{}_pow_b.dat'.format(self.prefix),'w')
             f_c = open('{}_pow_c.dat'.format(self.prefix),'w')
+            f_d = open('{}_pow_d.dat'.format(self.prefix),'w')
             f_e = open('{}_pow_e.dat'.format(self.prefix),'w')
             f_s = open('{}_pow_summary.dat'.format(self.prefix),'w')
             weight_a = 2.0*self.r_a*np.sqrt(self.r_a*self.r_b)/(self.r_a+self.r_b)
@@ -242,11 +242,16 @@ class Sample:
             f_c.write(('{:8.6f}  '*4+'\n').format(*dist_c))
             f_e.write(('{:8.6f}  '*4+'\n').format(*dist_e))
 
-        # Normalise total distributions and make summary file
+        # Normalise total distributions and make summary files
         total_p_ka /= total_p_ka.sum()
         total_p_kb /= total_p_kb.sum()
         total_p_kc /= total_p_kc.sum()
         total_ejk /= total_ejk.sum()
+        f_d.write(('{:10.8f}  '*k_max1+'\n').format(*total_p_ka))
+        f_d.write(('{:10.8f}  '*k_max1+'\n').format(*total_p_kb))
+        f_d.write(('{:10.8f}  '*k_max1+'\n').format(*total_p_kc))
+        for i in range(total_ejk[:,0].size):
+            f_d.write(('{:10.8f}  '*k_max1+'\n').format(*total_ejk[i,:]))
         dist_a = self.summarise_distribution(k,total_p_ka)
         dist_b = self.summarise_distribution(k,total_p_kb)
         dist_c = self.summarise_distribution(k,total_p_kc)
@@ -260,6 +265,7 @@ class Sample:
         f_a.close()
         f_b.close()
         f_c.close()
+        f_d.close()
         f_e.close()
         f_s.close()
         self.log('Network analysis written to files',indent=1)

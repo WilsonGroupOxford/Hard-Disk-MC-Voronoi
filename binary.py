@@ -1,11 +1,13 @@
 """Binary non-additive hard disc monte carlo simulation"""
 import numpy as np
 import os
+import sys
 from logfile import Logfile
 
 
 # Tolerances
 hd_tol = 1e-12 # Allowed hard disc overlap
+p_tol = 1e-2 # Acceptance probability tolerance
 
 
 class Binary_Colloid_Monte_Carlo:
@@ -49,11 +51,9 @@ class Binary_Colloid_Monte_Carlo:
             self.random_seed = int(f.readline().split()[0])
             self.mc_eqm_moves = int(f.readline().split()[0])
             self.mc_sample_moves = int(f.readline().split()[0])
-            self.mc_delta = float(f.readline().split()[0])
         self.log('Monte Carlo input settings',indent=1)
         self.log('Equilibrium moves: {}'.format(self.mc_eqm_moves),indent=2)
         self.log('Sampling moves: {}'.format(self.mc_sample_moves),indent=2)
-        self.log('Maximum displacement: {}'.format(self.mc_delta),indent=2)
         self.log('Mersenne-Twister seed: {}'.format(self.random_seed),indent=2)
         self.log('System input settings',indent=1)
         self.log('Total particles: {}'.format(self.n),indent=2)
@@ -264,14 +264,24 @@ class Binary_Colloid_Monte_Carlo:
         self.log('Results will be written to: {}.xyz'.format(self.output_prefix))
         self.f_xyz = open('{}.xyz'.format(self.output_prefix),'w')
 
+        # Determine ideal move size
+        self.log('Calculating Monte Carlo move displacement')
+        self.calculate_ideal_displacement()
+
         # Perform equilibration moves
         self.log('Equilibrating')
         self.mc_acceptance = 0
+        recalculate_delta_freq = self.mc_eqm_moves/10
         for i in range(1,self.mc_eqm_moves+1):
             self.monte_carlo_move()
-            if i%self.output_xyz_freq==0:
+            if i%recalculate_delta_freq==0:
                 self.log('Moves: {}'.format(i),indent=1)
                 print('Moves: {}'.format(i))
+                if np.abs(self.mc_acceptance/recalculate_delta_freq - 0.4)>p_tol:
+                    self.log('Recalculating Monte Carlo move displacement')
+                    self.calculate_ideal_displacement()
+                else: print(self.mc_acceptance/recalculate_delta_freq)
+                self.mc_acceptance = 0
 
         # Perform sampling moves
         self.log('Sampling')
@@ -288,6 +298,55 @@ class Binary_Colloid_Monte_Carlo:
         self.log('Simulation complete',dash=True)
         self.f_xyz.close()
         self.log.close()
+
+
+    def calculate_ideal_displacement(self):
+        """Calculate ideal Monte Carlo move displacement"""
+
+        # Use trial and improvement to find optimal move displacement
+        test_moves = self.n*10
+        p_ideal = 0.4
+        tol = 1e-2
+
+        # Calculate acceptance probability for lower limit
+        self.mc_acceptance = 0
+        delta_0 = self.r_a/100.0
+        self.mc_delta = delta_0
+        for i in range(test_moves):
+            self.monte_carlo_move()
+        p_0 = self.mc_acceptance/test_moves
+        if p_0 < p_ideal:
+            self.log('Monte Carlo move displacement set to: {}'.format(self.mc_delta),indent=1)
+            self.log('Predicted acceptance probability: {:6.4f}'.format(p_0),indent=1)
+
+        # Calculate acceptance probability for upper limit
+        self.mc_acceptance = 0
+        delta_1 = self.cell_length/4.0
+        self.mc_delta = delta_1
+        for i in range(test_moves):
+            self.monte_carlo_move()
+        p_1 = self.mc_acceptance/test_moves
+        if p_1 > p_ideal:
+            self.log('Monte Carlo move displacement set to: {}'.format(self.mc_delta),indent=1)
+            self.log('Predicted acceptance probability: {:6.4f}'.format(p_1),indent=1)
+
+        # Trial and improvement
+        self.mc_delta = 0.5*(delta_0+delta_1)
+        for j in range(100):
+            self.mc_acceptance = 0
+            for i in range(test_moves):
+                self.monte_carlo_move()
+            p_2 = self.mc_acceptance/test_moves
+            if np.abs(p_2-p_ideal)<tol: break
+            if p_2>p_ideal:
+                delta_0 = self.mc_delta
+                p_0 = p_2
+            else:
+                delta_1 = self.mc_delta
+                p_1 = p_2
+            self.mc_delta = 0.5*(delta_0+delta_1)
+        self.log('Monte Carlo move displacement set to: {}'.format(self.mc_delta),indent=1)
+        self.log('Predicted acceptance probability: {:6.4f}'.format(p_2),indent=1)
 
 
     def monte_carlo_move(self):

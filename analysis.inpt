@@ -1,8 +1,8 @@
 I/0
-./test              input file prefix
+./test_vis              input file prefix
 ---------------------------------------------------
 Processing
-0.999                 proportion of frames to cut
+0.99                 proportion of frames to cut
 ---------------------------------------------------
 Analysis types
 0       RDF
