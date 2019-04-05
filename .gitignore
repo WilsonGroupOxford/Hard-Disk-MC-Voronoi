@@ -7,3 +7,5 @@
 *.aux
 *.mpg
 *.pdf
+python_archive/
+cpp_src/cmake*/

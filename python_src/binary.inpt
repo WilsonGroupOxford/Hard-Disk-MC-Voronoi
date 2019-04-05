@@ -1,0 +1,18 @@
+I/0
+./test          output file prefix
+---------------------------------------------------
+System Properties
+2000           number of colloid particles
+1.2             size ratio (gamma=r_l/r_s)
+0.2             composition (q=phi_l/phi_t)
+0.6             total packing fraction
+---------------------------------------------------
+Monte Carlo Settings
+0          random seed
+1          pre-equilibrium cycles
+1          equilibrium cycles
+10         production cycles
+10         write cycle freq
+1          number of displacement moves per cycle (xN)
+0          number of cluster moves per cycle (Not implemented)
+---------------------------------------------------
