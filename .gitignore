@@ -9,6 +9,7 @@
 *.mpg
 *.pdf
 python_archive/
-cpp_src/cmake*/
+*/cmake*/
+analysis/cmake*/
 test_simulations/
 voro++/
