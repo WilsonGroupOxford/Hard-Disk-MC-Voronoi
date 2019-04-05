@@ -193,9 +193,6 @@ class Binary_Colloid_Monte_Carlo:
         self.subcell_nl_a = [[[] for j in range(self.subcell_div)] for i in range(self.subcell_div)] # Neighbour list of type a for subcells
         self.subcell_nl_b = [[[] for j in range(self.subcell_div)] for i in range(self.subcell_div)] # Neighbour list of type b for subcells
         self.subcell_search = [[[[i,j]] for j in range(self.subcell_div)] for i in range(self.subcell_div)] # Search order for subcells (self, edge-sharing, corner-sharing)
-        self.subcell_nl_aa = np.zeros((self.subcell_div,self.subcell_div,self.n_a),dtype=bool)
-        self.subcell_nl_bb = np.zeros((self.subcell_div,self.subcell_div,self.n_b),dtype=bool)
-        self.subcell_search1 = np.zeros((self.subcell_div,self.subcell_div,9,2),dtype=int)
         for i in range(self.subcell_div):
             for j in range(self.subcell_div):
                 left = (i+self.subcell_div-1)%self.subcell_div
@@ -210,24 +207,13 @@ class Binary_Colloid_Monte_Carlo:
                 self.subcell_search[i][j].append([left,up])
                 self.subcell_search[i][j].append([right,down])
                 self.subcell_search[i][j].append([right,up])
-                self.subcell_search1[i,j,0,:] = [i,j]
-                self.subcell_search1[i,j,1,:] = [i,down]
-                self.subcell_search1[i,j,2,:] = [i,up]
-                self.subcell_search1[i,j,3,:] = [left,j]
-                self.subcell_search1[i,j,4,:] = [right,j]
-                self.subcell_search1[i,j,5,:] = [left,down]
-                self.subcell_search1[i,j,6,:] = [left,up]
-                self.subcell_search1[i,j,7,:] = [right,down]
-                self.subcell_search1[i,j,8,:] = [right,up]
         # Generate subcell linked neighbour lists
         self.subcell_a = (self.crds_a/self.subcell_length).astype(int)
         self.subcell_b = (self.crds_b/self.subcell_length).astype(int)
         for i,loc in enumerate(self.subcell_a):
             self.subcell_nl_a[loc[0]][loc[1]].append(i)
-            self.subcell_nl_aa[loc[0],loc[1],i]=1
         for i,loc in enumerate(self.subcell_b):
             self.subcell_nl_b[loc[0]][loc[1]].append(i)
-            self.subcell_nl_bb[loc[0],loc[1],i]=1
 
         # Check no overlaps in starting configuration, if so kill and write configuration
         overlap = False
@@ -343,58 +329,6 @@ class Binary_Colloid_Monte_Carlo:
         return False
 
 
-    def hard_disc_overlap_subcell1(self,ref_id,ref_type,ref_subcell):
-        """Check if any hard-disc overlap between given particle and those in adjacent subcells.
-            Ref particle must not be present in neighbour lists"""
-
-        # Get coordinate of reference particle
-        if ref_type == 0:
-            ref_crd = self.crds_a[ref_id,:]
-            hd_a = self.hd_aa
-            hd_b = self.hd_ab
-        else:
-            ref_crd = self.crds_b[ref_id,:]
-            hd_a = self.hd_ab
-            hd_b = self.hd_bb
-
-        # Determine coordinates in nearby cells
-        crd_mask_a = np.ones(self.n_a,dtype=bool)
-        crd_mask_b = np.ones(self.n_b,dtype=bool)
-        search_subcells = self.subcell_search1[ref_subcell[0],ref_subcell[1],:,:]
-        for subcell in search_subcells:
-            i,j=subcell
-            crd_mask_a += self.subcell_nl_aa[i,j,:]
-            crd_mask_b += self.subcell_nl_bb[i,j,:]
-
-        # Calculate distances to particles of type a, applying minimum image convention
-        crds_a = self.crds_a[crd_mask_a]
-        dx_a = crds_a[:, 0] - ref_crd[0]
-        dy_a = crds_a[:, 1] - ref_crd[1]
-        dx_a[dx_a < -self.min_image_distance] += self.cell_length
-        dx_a[dx_a > self.min_image_distance] -= self.cell_length
-        dy_a[dy_a < -self.min_image_distance] += self.cell_length
-        dy_a[dy_a > self.min_image_distance] -= self.cell_length
-        d_sq_a = dx_a * dx_a + dy_a * dy_a
-        # Check overlap and return if found
-        if np.any(d_sq_a-hd_a<-hd_tol):
-            return True
-
-        # Calculate distances to particles of type b, applying minimum image convention
-        crds_b = self.crds_b[crd_mask_b]
-        dx_b = crds_b[:, 0] - ref_crd[0]
-        dy_b = crds_b[:, 1] - ref_crd[1]
-        dx_b[dx_b < -self.min_image_distance] += self.cell_length
-        dx_b[dx_b > self.min_image_distance] -= self.cell_length
-        dy_b[dy_b < -self.min_image_distance] += self.cell_length
-        dy_b[dy_b > self.min_image_distance] -= self.cell_length
-        d_sq_b = dx_b * dx_b + dy_b * dy_b
-        # Check overlap and return if found
-        if np.any(d_sq_b-hd_b<-hd_tol):
-            return True
-
-        return False
-
-
     def monte_carlo(self):
         """Perform Monte Carlo simulation"""
 
@@ -410,8 +344,8 @@ class Binary_Colloid_Monte_Carlo:
 
         # Determine ideal move size
         self.log('Calculating Monte Carlo move displacement')
-        # self.calculate_ideal_displacement()
-        self.mc_delta=1.0
+        self.calculate_ideal_displacement()
+
         # Perform equilibration moves
         self.log('Equilibrating')
         self.mc_acceptance = 0
@@ -519,36 +453,19 @@ class Binary_Colloid_Monte_Carlo:
             subcell_trial = (crd_trial/self.subcell_length).astype(int)
             self.subcell_a[particle_id,:] = subcell_trial
             self.subcell_nl_a[subcell_prev[0]][subcell_prev[1]].remove(particle_id)
-            self.subcell_nl_aa[subcell_prev[0],subcell_prev[1],particle_id]=0
 
             # Evaluate condition (hard-disc overlap)
-            start = timer()
-            for i in range(10000):
-                reject = self.hard_disc_overlap_cell(particle_id,0)
-            end = timer()
-            print(end - start)
-            start = timer()
-            for i in range(10000):
-                reject = self.hard_disc_overlap_subcell1(particle_id,0,subcell_trial)
-            end = timer()
-            print(end - start)
-            start = timer()
-            for i in range(10000):
-                reject = self.hard_disc_overlap_subcell(particle_id,0,subcell_trial)
-            end = timer()
-            print(end - start)
-            sys.exit()
+            # reject = self.hard_disc_overlap_cell(particle_id,0)
+            reject = self.hard_disc_overlap_subcell(particle_id,0,subcell_trial)
 
             # Accept/reject move
             if not reject:
                 self.mc_acceptance += 1
                 self.subcell_nl_a[subcell_trial[0]][subcell_trial[1]].append(particle_id)
-                self.subcell_nl_aa[subcell_trial[0],subcell_trial[1],particle_id]=1
             else:
                 self.crds_a[particle_id,:] = crd_prev
                 self.subcell_a[particle_id,:] = subcell_prev
                 self.subcell_nl_a[subcell_prev[0]][subcell_prev[1]].append(particle_id)
-                self.subcell_nl_aa[subcell_prev[0],subcell_prev[1],particle_id]=1
         else:
             particle_id -= self.n_a
 
@@ -571,22 +488,19 @@ class Binary_Colloid_Monte_Carlo:
             subcell_trial = (crd_trial/self.subcell_length).astype(int)
             self.subcell_b[particle_id,:] = subcell_trial
             self.subcell_nl_b[subcell_prev[0]][subcell_prev[1]].remove(particle_id)
-            self.subcell_nl_bb[subcell_prev[0],subcell_prev[1],particle_id]=0
 
             # Evaluate condition (hard-disc overlap)
             # reject = self.hard_disc_overlap_cell(particle_id,1)
-            reject = self.hard_disc_overlap_subcell1(particle_id,1,subcell_trial)
+            reject = self.hard_disc_overlap_subcell(particle_id,1,subcell_trial)
 
             # Accept/reject move
             if not reject:
                 self.mc_acceptance += 1
                 self.subcell_nl_b[subcell_trial[0]][subcell_trial[1]].append(particle_id)
-                self.subcell_nl_bb[subcell_trial[0],subcell_trial[1],particle_id]=1
             else:
                 self.crds_b[particle_id,:] = crd_prev
                 self.subcell_b[particle_id,:] = subcell_prev
                 self.subcell_nl_b[subcell_prev[0]][subcell_prev[1]].append(particle_id)
-                self.subcell_nl_bb[subcell_prev[0],subcell_prev[1],particle_id]=1
 
 
     def write_xyz(self):
