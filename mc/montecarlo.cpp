@@ -161,45 +161,25 @@ void MonteCarlo::preEquilibration(Logfile &logfile) {
     }
 
     //Adjust delta each cycle by trial and improvement
-    bool stage3;
-    double p,d=0.5*(dLow+dUp);
     for(;;){
-        p=monteCarloCycle();
-        ++cycleCount;
-        if(p>0.4) dLow=d;
-        else dUp=d;
-        d=0.5*(dLow+dUp);
+        double p;
+        double d=0.5*(dLow+dUp);
         dispMoveDelta=d;
-        if(abs(p-0.4)<0.01){
-            stage3=true;
-            break;
+        for(;;){
+            p=monteCarloCycle();
+            ++cycleCount;
+            if(abs(p-0.4)<0.01) break;
+            else if(p<0.4) dUp=d;
+            else dLow=d;
+            d=0.5*(dLow+dUp);
+            dispMoveDelta=d;
         }
-        if(cycleCount==nCyclePreEq) break;
+        dLow=0.5*d;
+        dUp=1.5*d;
+        if(dUp>cellLen_2) dUp=cellLen_2;
+        if(cycleCount>nCyclePreEq*0.9) break; //leave cycles to find minimum again
     }
-    if(!stage3) logfile.write("Displacement delta set to: ",dispMoveDelta);
-
-    //Second round of trial and improvement in pre-equilibrium steps remaining
-    dLow=dispMoveDelta/2;
-    dUp=dispMoveDelta*2;
-    if(dUp>cellLen_2) dUp=cellLen_2;
-    bool stage4;
-    for(;;){
-        p=monteCarloCycle();
-        if(p>0.4) dLow=d;
-        else dUp=d;
-        d=0.5*(dLow+dUp);
-        dispMoveDelta=d;
-        if(abs(p-0.4)<0.001){
-            stage4=true;
-            break;
-        }
-        if(cycleCount==nCyclePreEq) break;
-    }
-    if(!stage4) logfile.write("Displacement delta set to: ",dispMoveDelta);
-    else{
-        logfile.write("Pre-equilibration finished early");
-        logfile.write("Displacement delta set to: ",dispMoveDelta);
-    }
+    logfile.write("Displacement delta set to: ",dispMoveDelta);
     --logfile.currIndent;
 }
 
@@ -210,7 +190,7 @@ void MonteCarlo::equilibration(Logfile &logfile) {
     ++logfile.currIndent;
     double pAcc=0.0;
     for(int i=0; i<nCycleEq; ++i){
-        pAcc=monteCarloCycle();
+        pAcc+=monteCarloCycle();
     }
     logfile.write("Equilibration acceptance probability: ",pAcc/nCycleEq);
     --logfile.currIndent;
@@ -249,8 +229,8 @@ void MonteCarlo::production(string prefix, Logfile &logfile) {
 
     //Monte Carlo moves, writing at given frequency
     double pAcc=0.0;
-    for(int i=1; i<=nCycleEq; ++i){
-        pAcc=monteCarloCycle();
+    for(int i=1; i<=nCycleProd; ++i){
+        pAcc+=monteCarloCycle();
         if(i%cycleWriteFreq==0){
             xyzFile<<nC<<endl;
             xyzFile<<""<<endl;
@@ -271,7 +251,7 @@ void MonteCarlo::production(string prefix, Logfile &logfile) {
         }
     }
     --logfile.currIndent;
-    logfile.write("Production acceptance probability: ",pAcc/nCycleEq);
+    logfile.write("Production acceptance probability: ",pAcc/nCycleProd);
 
     //Close file
     xyzFile.close();

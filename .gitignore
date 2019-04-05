@@ -1,3 +1,4 @@
+.DS_Store
 .idea/
 *.dat
 *.pyc
@@ -10,3 +11,4 @@
 python_archive/
 cpp_src/cmake*/
 test_simulations/
+voro++/

@@ -22,29 +22,29 @@ class Initialiser:
 
         # Initialise log file and write header
         if log_file is None:
-            self.log = Logfile(name='init')
+            self.log = Logfile(name='initialise')
+            self.log("Binary Non-Additive Hard Sphere Monte Carlo Initialisation");
+            self.log("Written By: David OM, Wilson Group, 2019",dash=True);
         else:
             self.log = log_file
-        self.log('Initialisation')
-
 
     def complete(self):
         """Write final log and return log file"""
 
         self.log('Initialisation complete',dash=True)
-        return self.log
+        self.log.close()
 
 
     def read_input_file(self):
         """Read binary colloid sample properties and Monte Carlo parameters"""
 
         # Check if input file exists in current directory, if not kill process
-        if not os.path.isfile('./binary.inpt'):
-            self.log.error('Cannot find input file "binary.inpt" in current directory')
+        if not os.path.isfile('./initialise.inpt'):
+            self.log.error('Cannot find input file "initialise.inpt" in current directory')
 
         # Read input file
         self.log('Reading input file')
-        with open('./binary.inpt','r') as f:
+        with open('./initialise.inpt','r') as f:
             f.readline()
             self.output_prefix = f.readline().split()[0]
             f.readline()
@@ -111,7 +111,10 @@ class Initialiser:
         self.log('Constructing ordered lattice')
 
         # Calculate occupancy of each block from size ratio
-        multiplier = np.round(1.0/(self.r_b-int(self.r_b)))
+        if self.r_b-int(self.r_b)<1e-6:
+            multiplier=1.0
+        else:
+            multiplier = np.round(1.0/(self.r_b-int(self.r_b)))
         block_a_dim = int(self.r_b*multiplier)
         block_b_dim = int(self.r_a*multiplier)
         block_a_capacity = block_a_dim**2
@@ -328,12 +331,9 @@ class Initialiser:
 
 
 if __name__ == "__main__":
-    log=Logfile(name='test')
-    log('Testing',dash=True)
-    init = Initialiser(log_file=log)
+    init = Initialiser()
     init.read_input_file()
     init.calculate_parameters()
     init.setup_lattice()
     init.write_files()
     init.complete()
-    log.close()

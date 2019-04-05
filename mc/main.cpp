@@ -61,14 +61,17 @@ int main(int argc, char **argv) {
     logfile.separator();
 
     //Pre-equilibration to determine ideal move displacement
+    cout<<"Pre-equilibration"<<endl;
     simulation.preEquilibration(logfile);
     logfile.separator();
 
     //Equilibration
+    cout<<"Equilibration"<<endl;
     simulation.equilibration(logfile);
     logfile.separator();
 
     //Production
+    cout<<"Production"<<endl;
     simulation.production(string(argv[1]),logfile);
     logfile.separator();
 
