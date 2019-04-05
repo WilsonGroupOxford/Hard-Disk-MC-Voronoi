@@ -3,7 +3,7 @@ I/0
 ---------------------------------------------------
 System Properties
 2000           number of colloid particles
-1.2             size ratio (gamma=r_l/r_s)
+1.5             size ratio (gamma=r_l/r_s)
 0.2             composition (q=phi_l/phi_t)
 0.6             total packing fraction
 ---------------------------------------------------

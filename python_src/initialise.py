@@ -322,6 +322,9 @@ class Initialiser:
             f.write('{}  \n'.format(self.cycle_eqm))
             f.write('{}  \n'.format(self.cycle_prod))
             f.write('{}  \n'.format(self.write_freq))
+            f.write('{}  \n'.format(self.move_disp))
+            f.write('{}  \n'.format(self.move_clst))
+            f.write('{}  \n'.format(self.random_seed))
 
 
 if __name__ == "__main__":

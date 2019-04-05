@@ -103,8 +103,8 @@ public:
 
     //Member functions
     void criticalError(string message){
-        file<<"Critical error: "<< message<<endl;
-        throw(message);
+        file<<"Critical error: "<<message<<endl;
+        throw message;
     }
 
     double timeElapsed(){
