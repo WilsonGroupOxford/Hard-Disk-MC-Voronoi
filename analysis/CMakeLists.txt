@@ -7,7 +7,7 @@ file(GLOB SOURCE_FILES
         "*.h"
         "*.cpp"
         "*.tpp"
-        "../voro++/src/voro++.hh"
 )
 
 add_executable(analysis.x ${SOURCE_FILES})
+target_link_libraries(analysis.x /Users/David/Documents/Work/DPhil/Code/development/2d_colloid_monte_carlo/voro++/src/libvoro++.a)

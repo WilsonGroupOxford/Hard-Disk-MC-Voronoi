@@ -2,6 +2,7 @@
 #include <sstream>
 #include <cmath>
 #include "outputfile.h"
+#include "configuration.h"
 
 using namespace std;
 
@@ -71,6 +72,20 @@ int main(int argc, char **argv) {
     logfile.write("Voronoi: ",vorAnalysis);
     logfile.write("Radical/Laguerre: ",radAnalysis);
     --logfile.currIndent;
+    logfile.separator();
+
+    //Analyse xyz file frame by frame
+    logfile.write("Analysis");
+    ifstream xyzFile(string(argv[1])+"_prod.xyz", ios::in);
+    if(!xyzFile.good()) logfile.criticalError("Cannot find input file");
+    logfile.write("XYZ file opened");
+    Configuration config(nA,nB,rA,rB,cellLength); //set up configuration
+    for(int i=0; i<nConfigs; ++i){
+        config.setCoordinates(xyzFile,logfile);
+        ++logfile.currIndent;
+        if(vorAnalysis) config.voronoi(logfile);
+        --logfile.currIndent;
+    }
 
     logfile.separator();
     return 0;
