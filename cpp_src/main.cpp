@@ -57,9 +57,24 @@ int main(int argc, char **argv) {
     MonteCarlo simulation(nA,nB,rA,rB,cellLength,logfile);
     simulation.loadCoordinates(string(argv[1]),logfile);
     simulation.setParameters(randomSeed,nCyclePreEq,nCycleEq,nCycleProd,cycleWriteFreq,cycleDispMoves,cycleClstMoves,logfile);
+    simulation.checkAllOverlaps(logfile);
+    logfile.separator();
 
-    //Perform pre-equilibrium to determine ideal move displacement
+    //Pre-equilibration to determine ideal move displacement
     simulation.preEquilibration(logfile);
+    logfile.separator();
+
+    //Equilibration
+    simulation.equilibration(logfile);
+    logfile.separator();
+
+    //Production
+    simulation.production(string(argv[1]),logfile);
+    logfile.separator();
+
+    //Check final configuration
+    simulation.checkAllOverlaps(logfile);
+    logfile.separator();
 
     //Close files
     logfile.datetime("Simulation complete at: ");

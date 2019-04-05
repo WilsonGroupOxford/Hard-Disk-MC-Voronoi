@@ -277,7 +277,7 @@ class Initialiser:
         self.log('Writing files')
 
         # Write lattice
-        self.write_xyz()
+        self.write_xyz(keyword='init')
         self.log('Initial xyz configuration written')
 
         # Write aux file

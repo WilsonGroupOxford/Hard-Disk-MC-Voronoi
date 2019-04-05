@@ -17,8 +17,8 @@ private:
     int nA, nB; //number of type a and b
     double rA, rB, rAB; //radii of type a,b and non-additive ab
     double hdAA,hdBB,hdAB; //hard disc a-a, b-b and a-b squared interaction distance
-    double cellLen,minImageDist; //length of periodic cell and minimum image distance
-    VecF< VecF<double> > crdsA, crdsB; //coordinates of type a and b
+    double cellLen,rCellLen,cellLen_2; //length/reciprocal/half of periodic cell length
+    VecF<double> xA,yA,xB,yB; //x and y coordinates of type a and b
 
     //Monte carlo
     mt19937 mtGen; //mersenne twister random generator
@@ -28,10 +28,15 @@ private:
     int cycleWriteFreq; //write coordinate frequency
     int cycleDispMoves,cycleClstMoves; //number of displacement and cluster moves per mc cycle
     double dispMoveDelta; //maximum displacement in x,y directions
+    double hdTol; //tolerance for hard-disc overlap
 
     //Member functions
     double monteCarloCycle(); //single monte carlo cycle
     inline int displacementMove(); //single displacement move
+    inline bool nonAdditativeHardDiscOverlapAA(double& x, double& y, int &refId); //overlap of type a with all type a
+    inline bool nonAdditativeHardDiscOverlapBB(double& x, double& y, int &refId); //overlap of type b with all type b
+    inline bool nonAdditativeHardDiscOverlapAB(double& x, double& y); //overlap of type a with all type b
+    inline bool nonAdditativeHardDiscOverlapBA(double& x, double& y); //overlap of type b with all type a
 
 public:
 
@@ -44,7 +49,8 @@ public:
     void setParameters(int seed, int preEq, int eq, int prod, int writeFreq, int disp, int clst, Logfile& logfile); //set mc parameters
     void preEquilibration(Logfile& logfile);
     void equilibration(Logfile& logfile);
-    void production(Logfile& logfile);
+    void production(string prefix, Logfile& logfile);
+    void checkAllOverlaps(Logfile& logfile);
 };
 
 
