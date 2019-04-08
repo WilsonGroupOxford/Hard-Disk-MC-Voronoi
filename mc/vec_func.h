@@ -57,7 +57,8 @@ T vCyclicPermutation(T vec){
 template <typename T>
 T vSort(T vec){
     int n = vec.n;
-    int i= n/2, parent, child;
+    if(n<=1) return vec;
+    int i=n/2, parent, child;
     auto v=vec[0];
     T sVec(vec);
     if(n<2) return sVec;

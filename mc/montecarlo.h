@@ -8,6 +8,8 @@
 #include <random>
 #include "outputfile.h"
 #include "vecf.h"
+#include "vecr.h"
+#include "vec_func.h"
 
 class MonteCarlo {
 
@@ -24,6 +26,7 @@ private:
     mt19937 mtGen; //mersenne twister random generator
     uniform_int_distribution<int> randParticle; //uniform distribution for particle selection
     uniform_real_distribution<double> randDisp; //uniform distribution for displacement move
+    uniform_real_distribution<double> randClst; //uniform distribution for cluster move
     int nCyclePreEq,nCycleEq,nCycleProd; //number of cycles for (pre)equilibrium and production
     int cycleWriteFreq; //write coordinate frequency
     int cycleDispMoves,cycleClstMoves; //number of displacement and cluster moves per mc cycle
@@ -31,12 +34,15 @@ private:
     double hdTol; //tolerance for hard-disc overlap
 
     //Member functions
-    double monteCarloCycle(); //single monte carlo cycle
+    VecF<double> monteCarloCycle(); //single monte carlo cycle
     inline int displacementMove(); //single displacement move
-    inline bool nonAdditativeHardDiscOverlapAA(double& x, double& y, int &refId); //overlap of type a with all type a
-    inline bool nonAdditativeHardDiscOverlapBB(double& x, double& y, int &refId); //overlap of type b with all type b
-    inline bool nonAdditativeHardDiscOverlapAB(double& x, double& y); //overlap of type a with all type b
-    inline bool nonAdditativeHardDiscOverlapBA(double& x, double& y); //overlap of type b with all type a
+    inline int clusterMove(); //single cluster move
+    inline bool nonAdditiveHardDiscOverlapAA(double &x, double &y, int &refId); //overlap of type a with all type a
+    inline bool nonAdditiveHardDiscOverlapBB(double &x, double &y, int &refId); //overlap of type b with all type b
+    inline bool nonAdditiveHardDiscOverlapAB(double &x, double &y); //overlap of type a with all type b
+    inline bool nonAdditiveHardDiscOverlapBA(double &x, double &y); //overlap of type b with all type a
+    inline void nonAdditiveHardDiscOverlapA(double &x, double &y, VecF<int> &overlapA, VecF<int> &overlapB); //overlap of type a with a and b, store ids
+    inline void nonAdditiveHardDiscOverlapB(double &x, double &y, VecF<int> &overlapA, VecF<int> &overlapB); //overlap of type b with a and b, store ids
 
 public:
 

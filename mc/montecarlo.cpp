@@ -76,6 +76,7 @@ void MonteCarlo::setParameters(int seed, int preEq, int eq, int prod, int writeF
     mtGen.seed(seed);
     randParticle=uniform_int_distribution<int>(0,nA+nB-1);
     randDisp=uniform_real_distribution<double>(-1.0,1.0);
+    randClst=uniform_real_distribution<double>(-cellLen_2,cellLen_2);
     logfile.write("Initialising Monte Carlo process");
     ++logfile.currIndent;
 
@@ -106,13 +107,13 @@ void MonteCarlo::checkAllOverlaps(Logfile &logfile) {
     ++logfile.currIndent;
     bool overlap;
     for(int i=0; i<nA; ++i){
-        overlap = nonAdditativeHardDiscOverlapAA(xA[i],yA[i],i);
+        overlap = nonAdditiveHardDiscOverlapAA(xA[i], yA[i], i);
         if(overlap) logfile.criticalError("Overlap detected A-A");
-        overlap = nonAdditativeHardDiscOverlapAB(xA[i],yA[i]);
+        overlap = nonAdditiveHardDiscOverlapAB(xA[i], yA[i]);
         if(overlap) logfile.criticalError("Overlap detected A-B");
     }
     for(int i=0; i<nB; ++i) {
-        overlap = nonAdditativeHardDiscOverlapBB(xB[i], yB[i], i);
+        overlap = nonAdditiveHardDiscOverlapBB(xB[i], yB[i], i);
         if (overlap) logfile.criticalError("Overlap detected B-B");
     }
     logfile.write("All interactions satisfied");
@@ -132,7 +133,7 @@ void MonteCarlo::preEquilibration(Logfile &logfile) {
     bool stage1=false;
     dispMoveDelta=dLow;
     for(;;){
-        pLow=monteCarloCycle();
+        pLow=monteCarloCycle()[0];
         ++cycleCount;
         if(pLow>0.9){
             stage1=true;
@@ -150,7 +151,7 @@ void MonteCarlo::preEquilibration(Logfile &logfile) {
     //Next set largest displacement as half cell length
     double pUp,dUp=cellLen_2;
     dispMoveDelta=dUp;
-    pUp=monteCarloCycle();
+    pUp=monteCarloCycle()[0];
     ++cycleCount;
     bool stage2=cycleCount!=nCyclePreEq;
     if(!stage2){
@@ -166,7 +167,7 @@ void MonteCarlo::preEquilibration(Logfile &logfile) {
         double d=0.5*(dLow+dUp);
         dispMoveDelta=d;
         for(;;){
-            p=monteCarloCycle();
+            p=monteCarloCycle()[0];
             ++cycleCount;
             if(abs(p-0.4)<0.01) break;
             else if(p<0.4) dUp=d;
@@ -188,11 +189,14 @@ void MonteCarlo::equilibration(Logfile &logfile) {
 
     logfile.write("Equilibration");
     ++logfile.currIndent;
-    double pAcc=0.0;
+    VecF<double> moveAnalysis(2);
+    moveAnalysis = 0;
     for(int i=0; i<nCycleEq; ++i){
-        pAcc+=monteCarloCycle();
+        moveAnalysis += monteCarloCycle();
     }
-    logfile.write("Equilibration acceptance probability: ",pAcc/nCycleEq);
+    moveAnalysis /= nCycleEq;
+    logfile.write("Equilibration acceptance probability: ",moveAnalysis[0]);
+    logfile.write("Equilibration average cluster size: ",moveAnalysis[1]);
     --logfile.currIndent;
 }
 
@@ -228,9 +232,10 @@ void MonteCarlo::production(string prefix, Logfile &logfile) {
     logfile.write("Configuration written: ",nConfigs);
 
     //Monte Carlo moves, writing at given frequency
-    double pAcc=0.0;
+    VecF<double> moveAnalysis(2);
+    moveAnalysis = 0;
     for(int i=1; i<=nCycleProd; ++i){
-        pAcc+=monteCarloCycle();
+        moveAnalysis += monteCarloCycle();
         if(i%cycleWriteFreq==0){
             xyzFile<<nC<<endl;
             xyzFile<<""<<endl;
@@ -250,23 +255,38 @@ void MonteCarlo::production(string prefix, Logfile &logfile) {
             logfile.write("Configuration written: ",nConfigs);
         }
     }
+    moveAnalysis /= nCycleProd;
     --logfile.currIndent;
-    logfile.write("Production acceptance probability: ",pAcc/nCycleProd);
+    logfile.write("Production acceptance probability: ",moveAnalysis[0]);
+    logfile.write("Production average cluster size: ",moveAnalysis[1]);
 
     //Close file
     xyzFile.close();
     --logfile.currIndent;
 }
 
-double MonteCarlo::monteCarloCycle() {
+VecF<double> MonteCarlo::monteCarloCycle() {
     //Cycle of displacement and cluster moves
 
+    //Move analysis: displacement acceptance probability and cluster size
+    VecF<double> moveAnalysis(2);
+    moveAnalysis = 0;
+
     //Displacement moves
-    double pAccept = 0.0;
     for(int i=0; i<cycleDispMoves; ++i){
-        pAccept += displacementMove();
+        moveAnalysis[0] += displacementMove();
     }
-    return pAccept/cycleDispMoves;
+
+    //Cluster moves
+    for(int i=0; i<cycleClstMoves; ++i){
+        moveAnalysis[1] += clusterMove();
+    }
+
+    //Average move analysis
+    moveAnalysis[0] /= cycleDispMoves;
+    moveAnalysis[1] /= cycleClstMoves;
+
+    return moveAnalysis;
 }
 
 int MonteCarlo::displacementMove() {
@@ -282,10 +302,10 @@ int MonteCarlo::displacementMove() {
     if(particleId<nA) {
         xTrial = xA[particleId]+dx;
         yTrial = yA[particleId]+dy;
-        xTrial -= cellLen*floor(xTrial*rCellLen);
-        yTrial -= cellLen*floor(yTrial*rCellLen);
-        reject = nonAdditativeHardDiscOverlapAA(xTrial,yTrial,particleId);
-        if(!reject) reject = nonAdditativeHardDiscOverlapAB(xTrial,yTrial);
+        xTrial -= cellLen*nearbyint(xTrial*rCellLen);
+        yTrial -= cellLen*nearbyint(yTrial*rCellLen);
+        reject = nonAdditiveHardDiscOverlapAA(xTrial, yTrial, particleId);
+        if(!reject) reject = nonAdditiveHardDiscOverlapAB(xTrial, yTrial);
         if(!reject){
             xA[particleId] = xTrial;
             yA[particleId] = yTrial;
@@ -295,10 +315,10 @@ int MonteCarlo::displacementMove() {
         particleId -= nA;
         xTrial = xB[particleId]+dx;
         yTrial = yB[particleId]+dy;
-        xTrial -= cellLen*floor(xTrial*rCellLen);
-        yTrial -= cellLen*floor(yTrial*rCellLen);
-        reject = nonAdditativeHardDiscOverlapBB(xTrial,yTrial,particleId);
-        if(!reject) reject = nonAdditativeHardDiscOverlapBA(xTrial,yTrial);
+        xTrial -= cellLen*nearbyint(xTrial*rCellLen);
+        yTrial -= cellLen*nearbyint(yTrial*rCellLen);
+        reject = nonAdditiveHardDiscOverlapBB(xTrial, yTrial, particleId);
+        if(!reject) reject = nonAdditiveHardDiscOverlapBA(xTrial, yTrial);
         if(!reject){
             xB[particleId] = xTrial;
             yB[particleId] = yTrial;
@@ -309,7 +329,82 @@ int MonteCarlo::displacementMove() {
     else return 1;
 }
 
-bool MonteCarlo::nonAdditativeHardDiscOverlapAA(double& x, double& y, int &refId) {
+int MonteCarlo::clusterMove() {
+    //Single Monte Carlo cluster move - invert coordinates in random pivot
+
+    //Vectors containing information on which particles to invert
+    VecF<int> invertA(nA),invertB(nB); //0=leave,1=invert,2=inverted
+    VecF<int> overlapA(nA),overlapB(nB);
+    invertA = 0;
+    invertB = 0;
+    overlapA = 0;
+    overlapB = 0;
+
+    //Select random particle of type a or b and pivot point
+    int particleId = randParticle(mtGen);
+    if(particleId<nA) invertA[particleId]=1;
+    else invertB[particleId-nA]=1;
+    double xPivot = randClst(mtGen);
+    double yPivot = randClst(mtGen);
+
+    //Perform cluster move: invert particles, find overlapping and loop until no overlaps remain
+    int nInverted = 0;
+    double dx,dy;
+    for(;;){
+        //A: invert particles and find overlapping
+        for(int i=0; i<nA; ++i){
+            if(invertA[i]==1){
+                dx = xA[i] - xPivot;
+                dy = yA[i] - yPivot;
+                xA[i] = xPivot - dx;
+                yA[i] = yPivot - dy;
+                xA[i] -= cellLen*nearbyint(xA[i]*rCellLen);
+                yA[i] -= cellLen*nearbyint(yA[i]*rCellLen);
+                nonAdditiveHardDiscOverlapA(xA[i],yA[i],overlapA,overlapB);
+                ++nInverted;
+                invertA[i]=2;
+            }
+        }
+        //B: invert particles and find overlapping
+        for(int i=0; i<nB; ++i){
+            if(invertB[i]==1){
+                dx = xB[i] - xPivot;
+                dy = yB[i] - yPivot;
+                xB[i] = xPivot - dx;
+                yB[i] = yPivot - dy;
+                xB[i] -= cellLen*nearbyint(xB[i]*rCellLen);
+                yB[i] -= cellLen*nearbyint(yB[i]*rCellLen);
+                nonAdditiveHardDiscOverlapB(xB[i],yB[i],overlapA,overlapB);
+                ++nInverted;
+                invertB[i]=2;
+            }
+        }
+
+        //Update inversion list
+        bool complete = true;
+        for(int i=0; i<nA; ++i){
+            if(overlapA[i] && invertA[i]==0){
+                invertA[i] = 1;
+                complete = false;
+            }
+        }
+        for(int i=0; i<nB; ++i){
+            if(overlapB[i] && invertB[i]==0){
+                invertB[i] = 1;
+                complete = false;
+            }
+        }
+        overlapA=0;
+        overlapB=0;
+
+        //Complete when no more overlaps
+        if(complete) break;
+    }
+
+    return nInverted;
+}
+
+bool MonteCarlo::nonAdditiveHardDiscOverlapAA(double &x, double &y, int &refId) {
     //Check for overlap of particle of type a with particles of type a
 
     double dx,dy;
@@ -327,7 +422,7 @@ bool MonteCarlo::nonAdditativeHardDiscOverlapAA(double& x, double& y, int &refId
     return false;
 }
 
-bool MonteCarlo::nonAdditativeHardDiscOverlapBB(double& x, double& y, int &refId) {
+bool MonteCarlo::nonAdditiveHardDiscOverlapBB(double &x, double &y, int &refId) {
     //Check for overlap of particle of type b with particles of type b
 
     double dx,dy;
@@ -345,7 +440,7 @@ bool MonteCarlo::nonAdditativeHardDiscOverlapBB(double& x, double& y, int &refId
     return false;
 }
 
-bool MonteCarlo::nonAdditativeHardDiscOverlapAB(double& x, double& y) {
+bool MonteCarlo::nonAdditiveHardDiscOverlapAB(double &x, double &y) {
     //Check for overlap of particle of type a with particles of type b
 
     double dx,dy;
@@ -363,7 +458,7 @@ bool MonteCarlo::nonAdditativeHardDiscOverlapAB(double& x, double& y) {
     return false;
 }
 
-bool MonteCarlo::nonAdditativeHardDiscOverlapBA(double& x, double& y) {
+bool MonteCarlo::nonAdditiveHardDiscOverlapBA(double &x, double &y) {
     //Check for overlap of particle of type b with particles of type a
 
     double dx,dy;
@@ -379,4 +474,56 @@ bool MonteCarlo::nonAdditativeHardDiscOverlapBA(double& x, double& y) {
         }
     }
     return false;
+}
+
+void MonteCarlo::nonAdditiveHardDiscOverlapA(double &x, double &y, VecF<int> &overlapA, VecF<int> &overlapB) {
+    //Check for overlap of particle of type a with all others, storing overlap ids
+
+    //AA
+    double dx,dy;
+    double dSq;
+    for(int i=0; i<nA; ++i){
+        dx = x-xA[i];
+        dy = y-yA[i];
+        dx -= cellLen*nearbyint(dx*rCellLen);
+        dy -= cellLen*nearbyint(dy*rCellLen);
+        dSq = dx*dx+dy*dy-hdAA;
+        if(dSq<hdTol) overlapA[i]=1;
+    }
+
+    //AB
+    for(int i=0; i<nB; ++i) {
+        dx = x - xB[i];
+        dy = y - yB[i];
+        dx -= cellLen * nearbyint(dx * rCellLen);
+        dy -= cellLen * nearbyint(dy * rCellLen);
+        dSq = dx * dx + dy * dy - hdAB;
+        if (dSq < hdTol) overlapB[i]=1;
+    }
+}
+
+void MonteCarlo::nonAdditiveHardDiscOverlapB(double &x, double &y, VecF<int> &overlapA, VecF<int> &overlapB) {
+    //Check for overlap of particle of type b with all others, storing overlap ids
+
+    //BB
+    double dx,dy;
+    double dSq;
+    for(int i=0; i<nB; ++i){
+        dx = x-xB[i];
+        dy = y-yB[i];
+        dx -= cellLen*nearbyint(dx*rCellLen);
+        dy -= cellLen*nearbyint(dy*rCellLen);
+        dSq = dx*dx+dy*dy-hdBB;
+        if(dSq<hdTol) overlapB[i]=1;
+    }
+
+    //AB
+    for(int i=0; i<nA; ++i) {
+        dx = x - xA[i];
+        dy = y - yA[i];
+        dx -= cellLen * nearbyint(dx * rCellLen);
+        dy -= cellLen * nearbyint(dy * rCellLen);
+        dSq = dx * dx + dy * dy - hdAB;
+        if (dSq < hdTol) overlapA[i]=1;
+    }
 }

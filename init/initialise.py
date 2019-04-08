@@ -68,7 +68,7 @@ class Initialiser:
         self.log('Equilibrium cycles: {}'.format(self.cycle_eqm),indent=2)
         self.log('Production cycles: {}'.format(self.cycle_prod),indent=2)
         self.log('Displacement moves per cycle: {}'.format(self.move_disp),indent=2)
-        self.log('XXX: {}'.format(self.move_clst),indent=2)
+        self.log('Cluster moves per cycle: {}'.format(self.move_clst),indent=2)
         self.log('System input settings',indent=1)
         self.log('Total particles: {}'.format(self.n),indent=2)
         self.log('Size ratio: {}'.format(self.radius_ratio),indent=2)
@@ -208,6 +208,9 @@ class Initialiser:
                 self.crds_b[count_b,:] = crd
                 count_b += 1
             block += 1
+        # Recentre on origin
+        self.crds_a -= self.min_image_distance
+        self.crds_b -= self.min_image_distance
         self.log('Lattice constructed',indent=1)
 
         # Check for overlaps in starting configuration
