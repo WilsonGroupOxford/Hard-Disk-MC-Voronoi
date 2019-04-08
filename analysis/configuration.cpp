@@ -55,6 +55,129 @@ void Configuration::setCoordinates(ifstream& xyzFile, Logfile& logfile) {
     ++nCrdSets;
 }
 
+void Configuration::setRdf(double delta, double extent) {
+    //Initialise partial and total rdf histograms
+
+    //Histogram Bin properties
+    rdfDelta = delta;
+    double rdfExtent = extent*rB;
+    if(rdfExtent>cellLen_2) rdfExtent = cellLen_2;
+    rdfMaxSq = rdfExtent*rdfExtent;
+
+    //Make histograms
+    int n = int(floor(rdfExtent/rdfDelta));
+    rdfR = VecF<double>(n); //bin central values
+    rdfR = rdfDelta/2;
+    for(int i=0; i<n; ++i) rdfR[i] += i*rdfDelta;
+    rdfAA = VecF<double>(n);
+    rdfBB = VecF<double>(n);
+    rdfAB = VecF<double>(n);
+    rdfC = VecF<double>(n);
+    rdfAA = 0;
+    rdfBB = 0;
+    rdfAB = 0;
+    rdfC = 0;
+}
+
+void Configuration::rdf(Logfile &logfile) {
+    //Add to unnormalised partial rdfs
+
+    //AA
+    int r;
+    double x0,y0,x1,y1,dx,dy,rSq;
+    for(int i=0; i<nA-1; ++i){
+        x0 = xA[i];
+        y0 = yA[i];
+        for(int j=i+1; j<nA; ++j){
+            x1 = xA[j];
+            y1 = yA[j];
+            dx = x0-x1;
+            dy = y0-y1;
+            dx -= cellLen*nearbyint(dx*rCellLen);
+            dy -= cellLen*nearbyint(dy*rCellLen);
+            rSq = dx*dx+dy*dy;
+            if(rSq<rdfMaxSq){
+                r=int(floor(sqrt(rSq)/rdfDelta));
+                rdfAA[r] += 2;
+            }
+        }
+    }
+
+    //BB
+    for(int i=0; i<nB-1; ++i){
+        x0 = xB[i];
+        y0 = yB[i];
+        for(int j=i+1; j<nB; ++j){
+            x1 = xB[j];
+            y1 = yB[j];
+            dx = x0-x1;
+            dy = y0-y1;
+            dx -= cellLen*nearbyint(dx*rCellLen);
+            dy -= cellLen*nearbyint(dy*rCellLen);
+            rSq = dx*dx+dy*dy;
+            if(rSq<rdfMaxSq){
+                r=int(floor(sqrt(rSq)/rdfDelta));
+                rdfBB[r] += 2;
+            }
+        }
+    }
+
+    //AB
+    for(int i=0; i<nA; ++i){
+        x0 = xA[i];
+        y0 = yA[i];
+        for(int j=0; j<nB; ++j){
+            x1 = xB[j];
+            y1 = yB[j];
+            dx = x0-x1;
+            dy = y0-y1;
+            dx -= cellLen*nearbyint(dx*rCellLen);
+            dy -= cellLen*nearbyint(dy*rCellLen);
+            rSq = dx*dx+dy*dy;
+            if(rSq<rdfMaxSq){
+                r=int(floor(sqrt(rSq)/rdfDelta));
+                rdfAB[r] += 2;
+            }
+        }
+    }
+}
+
+void Configuration::rdfFinalise(string prefix, Logfile &logfile) {
+    //Combine partial rdfs, normalise and write to file
+
+    //Combine partial RDFs
+    logfile.write("Finalising RDFs");
+    ++logfile.currIndent;
+    rdfC = rdfAA+rdfBB+rdfAB;
+    logfile.write("Partial RDFs combined");
+
+    //Normalise
+    double ndensityA,ndensityB,ndensityC;
+    ndensityA = nA/(cellLen*cellLen);
+    ndensityB = nB/(cellLen*cellLen);
+    ndensityC = nC/(cellLen*cellLen);
+    VecF<double> norm,normA,normB,normAB,normC;
+    norm = ((rdfR+rdfDelta/2)*(rdfR+rdfDelta/2)-(rdfR-rdfDelta/2)*(rdfR-rdfDelta/2))*M_PI*nCrdSets;
+    rdfAA /= norm*ndensityA*nA;
+    rdfBB /= norm*ndensityB*nB;
+    rdfAB /= norm*(ndensityA*nB+ndensityB*nA);
+    rdfC /= norm*ndensityC*nC;
+    logfile.write("RDFs normalised");
+
+    //Write to file
+    ofstream rdfFile(prefix+"_rdf.dat", ios::in | ios::trunc);
+    rdfFile << fixed << showpoint << setprecision(8);
+    for(int i=0; i<rdfR.n; ++i){
+        rdfFile << setw(20) << left << rdfR[i];
+        rdfFile << setw(20) << left << rdfAA[i];
+        rdfFile << setw(20) << left << rdfBB[i];
+        rdfFile << setw(20) << left << rdfAB[i];
+        rdfFile << setw(20) << left << rdfC[i]<<endl;
+    }
+    logfile.write("RDFs written (AA,BB,AB,Total");
+    --logfile.currIndent;
+}
+
 void Configuration::voronoi(Logfile& logfile) {
     //Voronoi analysis
 

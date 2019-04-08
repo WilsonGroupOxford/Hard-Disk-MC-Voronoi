@@ -2,12 +2,12 @@ Processing
 0.9                 proportion of frames to cut
 ---------------------------------------------------
 Analysis types
-0       RDF
-1       Voronoi
-1       Radical
+1       RDF
+0       Voronoi
+0       Radical
 ---------------------------------------------------
 RDF Analysis
-0.05               bin size
+0.01               bin size
 10                extent (n*r_b, defaults to L/2 if too large)
 ---------------------------------------------------
 Network Analysis

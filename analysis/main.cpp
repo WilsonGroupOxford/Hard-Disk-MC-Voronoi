@@ -22,6 +22,7 @@ int main(int argc, char **argv) {
     string skip,line;
     double cutProportion; //proportion of configurations to cut
     int rdfAnalysis,vorAnalysis,radAnalysis; //analysis types
+    double rdfDelta,rdfExtent; //bin increment and maximum value
     getline(inputFile,skip);
     getline(inputFile,line);
     istringstream(line)>>cutProportion;
@@ -33,6 +34,12 @@ int main(int argc, char **argv) {
     istringstream(line)>>vorAnalysis;
     getline(inputFile,line);
     istringstream(line)>>radAnalysis;
+    getline(inputFile,skip);
+    getline(inputFile,skip);
+    getline(inputFile,line);
+    istringstream(line)>>rdfDelta;
+    getline(inputFile,line);
+    istringstream(line)>>rdfExtent;
 
     //Read auxilary file
     logfile.write("Reading auxilary parameters");
@@ -74,18 +81,28 @@ int main(int argc, char **argv) {
     --logfile.currIndent;
     logfile.separator();
 
-    //Analyse xyz file frame by frame
+    //Open input file
     logfile.write("Analysis");
-    ifstream xyzFile(string(argv[1])+"_prod.xyz", ios::in);
+    string prefix = string(argv[1]);
+    ifstream xyzFile(prefix+"_prod.xyz", ios::in);
     if(!xyzFile.good()) logfile.criticalError("Cannot find input file");
     logfile.write("XYZ file opened");
+
+    //Set up configuration and output files
     Configuration config(nA,nB,rA,rB,cellLength); //set up configuration
+    if(rdfAnalysis) config.setRdf(rdfDelta,rdfExtent);
+
+    //Analyse frame by frame
     for(int i=0; i<nConfigs; ++i){
         config.setCoordinates(xyzFile,logfile);
         ++logfile.currIndent;
+        if(rdfAnalysis) config.rdf(logfile);
         if(vorAnalysis) config.voronoi(logfile);
         --logfile.currIndent;
     }
+
+    //Finalise analyses
+    config.rdfFinalise(prefix,logfile);
 
     logfile.separator();
     return 0;
