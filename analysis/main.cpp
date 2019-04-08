@@ -89,15 +89,22 @@ int main(int argc, char **argv) {
     logfile.write("XYZ file opened");
 
     //Set up configuration and output files
+    ofstream vorFileA,vorFileB,vorFileC;
     Configuration config(nA,nB,rA,rB,cellLength); //set up configuration
     if(rdfAnalysis) config.setRdf(rdfDelta,rdfExtent);
+    if(vorAnalysis){
+        vorFileA = ofstream(prefix+"_vor_pa.dat", ios::in | ios::trunc);
+        vorFileB = ofstream(prefix+"_vor_pb.dat", ios::in | ios::trunc);
+        vorFileC = ofstream(prefix+"_vor_pc.dat", ios::in | ios::trunc);
+        config.setVoronoi(logfile);
+    }
 
     //Analyse frame by frame
     for(int i=0; i<nConfigs; ++i){
         config.setCoordinates(xyzFile,logfile);
         ++logfile.currIndent;
         if(rdfAnalysis) config.rdf(logfile);
-        if(vorAnalysis) config.voronoi(logfile);
+        if(vorAnalysis) config.voronoi(vorFileA,vorFileB,vorFileC,logfile);
         --logfile.currIndent;
     }
 

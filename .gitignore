@@ -8,6 +8,7 @@
 *.aux
 *.mpg
 *.pdf
+*.tmp
 python_archive/
 */cmake*/
 analysis/cmake*/

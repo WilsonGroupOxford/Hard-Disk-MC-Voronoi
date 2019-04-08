@@ -299,7 +299,7 @@ class Initialiser:
             f_xyz = open('{}.xyz'.format(self.output_prefix),'w')
         else:
             f_xyz = open('{}_{}.xyz'.format(self.output_prefix,keyword),'w')
-
+        
         # Number of particles, blank line
         f_xyz.write('{} \n \n'.format(self.n))
 

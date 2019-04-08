@@ -2,8 +2,8 @@ Processing
 0.9                 proportion of frames to cut
 ---------------------------------------------------
 Analysis types
-1       RDF
-0       Voronoi
+0       RDF
+1       Voronoi
 0       Radical
 ---------------------------------------------------
 RDF Analysis

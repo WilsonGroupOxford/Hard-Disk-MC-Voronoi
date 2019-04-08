@@ -8,6 +8,9 @@
 #include "outputfile.h"
 #include "vecf.h"
 #include "../voro++/src/voro++.hh"
+#include "voronoi2d.h"
+
+using namespace std;
 
 class Configuration {
 
@@ -20,9 +23,13 @@ private:
     double cellLen,rCellLen,cellLen_2; //length/reciprocal/half of periodic cell
     VecF<double> xA,yA,xB,yB; //x and y coordinates of particles of type a and b
 
-    //RDF varaibles
+    //RDF variables
     double rdfDelta, rdfMaxSq; //historgram bin widths and square of maximum value
     VecF<double> rdfR, rdfAA, rdfBB, rdfAB, rdfC; //partial radial distribution functions
+
+    //Voronoi variables
+    VecF<double> vorPKA,vorPKB,vorPKC; //ring distribution functions of type a,b,total
+    VecF<double> vorARA,vorARB,vorARC; //area distirbution for each type,a,b,total
 
 public:
 
@@ -35,7 +42,8 @@ public:
     void setRdf(double delta, double extent);
     void rdf(Logfile& logfile);
     void rdfFinalise(string prefix, Logfile& logfile);
-    void voronoi(Logfile& logfile);
+    void setVoronoi(Logfile& logfile);
+    void voronoi(ofstream &vorFileA, ofstream &vorFileB, ofstream &vorFileC, Logfile& logfile);
 };
 
 

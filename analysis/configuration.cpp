@@ -178,17 +178,44 @@ void Configuration::rdfFinalise(string prefix, Logfile &logfile) {
     --logfile.currIndent;
 }
 
-void Configuration::voronoi(Logfile& logfile) {
+void Configuration::setVoronoi(Logfile &logfile) {
+    //Initialise ring distributions for type a, b and total
+
+    //Maximum size arbitrary - but random Voronoi unlikely to be >16
+    int maxK = 20;
+    vorPKA = VecF<double>(maxK+1);
+    vorPKB = VecF<double>(maxK+1);
+    vorPKC = VecF<double>(maxK+1);
+    vorARA = VecF<double>(maxK+1);
+    vorARB = VecF<double>(maxK+1);
+    vorARC = VecF<double>(maxK+1);
+}
+
+void Configuration::voronoi(ofstream &vorFileA, ofstream &vorFileB, ofstream &vorFileC, Logfile &logfile) {
     //Voronoi analysis
 
-    //Initialise container
+    //Initialise Voronoi and add configuration coordinates
     logfile.write("Voronoi");
-    voro::container voronoi(0.0,cellLen,0.0,cellLen,-0.5,0.5,1,1,1,true,true,false,nC);
+    voro::container vor3D(-cellLen_2,cellLen_2,-cellLen_2,cellLen_2,-0.5,0.5,3,3,3,true,true,false,nC);
+    for(int i=0; i<nA; ++i) vor3D.put(i,xA[i],yA[i],0.0);
+    for(int i=0, j=nA; i<nB; ++i,++j) vor3D.put(j,xB[i],yB[i],0.0);
 
-    //Add coordinates
-    for(int i=0; i<nA; ++i) voronoi.put(i,xA[i],yA[i],0.0);
-    for(int i=0, j=nA; i<nB; ++i,++j) voronoi.put(j,xB[i],yB[i],0.0);
+    //Calculate Voronoi and generate temporary files
+    vor3D.print_custom("%i","./vorI.tmp");
+    vor3D.print_custom("%a","./vorK.tmp");
+    vor3D.print_custom("%f","./vorA.tmp");
+    vor3D.print_custom("%n","./vorN.tmp");
+    vor3D.print_custom("%l","./vorV.tmp");
 
-    //Generate Voronoi
-    cout<<voronoi.sum_cell_volumes()<<" "<<cellLen*cellLen<<endl;
+    //Read into 2D Voronoi, analyse and extract data
+    Voronoi2D vor2D(nA,nB,vorARA.n-1,logfile);
+
+
+
+
+//    vor2D.networkAnalysis(vorPKA.n-1,logfile);
+
+
+
+    exit(1);
 }
