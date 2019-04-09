@@ -161,6 +161,13 @@ void MonteCarlo::preEquilibration(Logfile &logfile) {
         return;
     }
 
+    if(pUp>0.4) {
+        logfile.write("Too diffuse to determine maximum ideal move displacement");
+        logfile.write("Setting displacement delta to L/2");
+        dispMoveDelta=cellLen_2;
+        return;
+    }
+
     //Adjust delta each cycle by trial and improvement
     for(;;){
         double p;

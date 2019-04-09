@@ -89,13 +89,22 @@ int main(int argc, char **argv) {
     logfile.write("XYZ file opened");
 
     //Set up configuration and output files
-    ofstream vorFileA,vorFileB,vorFileC;
+    ofstream vorFilePKA,vorFilePKB,vorFilePKC,vorFileARA,vorFileARB,vorFileNet;
     Configuration config(nA,nB,rA,rB,cellLength); //set up configuration
     if(rdfAnalysis) config.setRdf(rdfDelta,rdfExtent);
     if(vorAnalysis){
-        vorFileA = ofstream(prefix+"_vor_pa.dat", ios::in | ios::trunc);
-        vorFileB = ofstream(prefix+"_vor_pb.dat", ios::in | ios::trunc);
-        vorFileC = ofstream(prefix+"_vor_pc.dat", ios::in | ios::trunc);
+        vorFilePKA = ofstream(prefix+"_vor_pka.dat", ios::in | ios::trunc);
+        vorFilePKB = ofstream(prefix+"_vor_pkb.dat", ios::in | ios::trunc);
+        vorFilePKC = ofstream(prefix+"_vor_pkc.dat", ios::in | ios::trunc);
+        vorFileARA = ofstream(prefix+"_vor_ara.dat", ios::in | ios::trunc);
+        vorFileARB = ofstream(prefix+"_vor_arb.dat", ios::in | ios::trunc);
+        vorFileNet = ofstream(prefix+"_vor_net.dat", ios::in | ios::trunc);
+        vorFilePKA << fixed << showpoint << setprecision(8);
+        vorFilePKB << fixed << showpoint << setprecision(8);
+        vorFilePKC << fixed << showpoint << setprecision(8);
+        vorFileARA << fixed << showpoint << setprecision(8);
+        vorFileARB << fixed << showpoint << setprecision(8);
+        vorFileNet << fixed << showpoint << setprecision(8);
         config.setVoronoi(logfile);
     }
 
@@ -104,12 +113,15 @@ int main(int argc, char **argv) {
         config.setCoordinates(xyzFile,logfile);
         ++logfile.currIndent;
         if(rdfAnalysis) config.rdf(logfile);
-        if(vorAnalysis) config.voronoi(vorFileA,vorFileB,vorFileC,logfile);
+        if(vorAnalysis) config.voronoi(vorFilePKA,vorFilePKB,vorFilePKC,vorFileARA,vorFileARB,vorFileNet,logfile);
+        logfile.write("Configuration: ",i);
+        cout<<i<<endl;
         --logfile.currIndent;
     }
 
     //Finalise analyses
-    config.rdfFinalise(prefix,logfile);
+    if(rdfAnalysis) config.rdfFinalise(prefix,logfile);
+    if(vorAnalysis) config.voronoiFinalise(vorFilePKA,vorFilePKB,vorFilePKC,vorFileARA,vorFileARB,vorFileNet,logfile);
 
     logfile.separator();
     return 0;

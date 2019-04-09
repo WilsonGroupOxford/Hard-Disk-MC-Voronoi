@@ -1,8 +1,8 @@
 #include "voronoi2d.h"
 
-Voronoi2D::Voronoi2D() {}
+VoronoiBinary2D::VoronoiBinary2D() {}
 
-Voronoi2D::Voronoi2D(int numA, int numB, int maxS, Logfile &logfile) {
+VoronoiBinary2D::VoronoiBinary2D(int numA, int numB, int maxS, Logfile &logfile) {
     //Convert output files from voro++ to 2D voronoi/delaunay triangulation
 
     //Assign
@@ -92,7 +92,7 @@ Voronoi2D::Voronoi2D(int numA, int numB, int maxS, Logfile &logfile) {
                 ++pos;
             }
         }
-        if(pos!=k1) logfile.criticalError("Error in conversion to 2D Voronoi");
+        if(pos!=k0) logfile.criticalError("Error in conversion to 2D Voronoi");
 
         //Store depending on type
         id = ids[i];
@@ -122,72 +122,94 @@ Voronoi2D::Voronoi2D(int numA, int numB, int maxS, Logfile &logfile) {
     sizeFile.close();
     areaFile.close();
     nlFile.close();
+
+    //Calculate size, area and connection distirbutions
+    calculateDistributions(logfile);
 }
 
-//void Voronoi2D::networkAnalysis(int kMax, Logfile &logfile) {
-//    //Network analysis of Delaunay simplex
-//
-//    //Calculate size and area distributions
-//    double tol=1e-6;
-//    VecF<double> k(kMax+1);
-//    sizeDist = VecF<double>(kMax+1);
-//    areaDist = VecF<double>(kMax+1);
-//    for(int i=0; i<=kMax; ++i) k[i]=i;
-//    sizeDist = 0;
-//    areaDist = 0;
-//    int size;
-//    //Calculate raw distirbutions
-//    for(int i=0; i<nF; ++i){
-//        size = fSize[i];
-//        ++sizeDist[size];
-//        areaDist[size] += fArea[i];
-//    }
-//    //Normalise
-//    for(int i=0; i<=kMax; ++i){
-//        if(sizeDist[i]>0.0) areaDist[i] /= sizeDist[i];
-//    }
-//    sizeDist /= nF;
-//    meanSize = vSum(k*sizeDist);
-//    varSize = vSum(k*k*sizeDist)-meanSize*meanSize;
-//
-//    //Calculate assortativity
-//    cnxDist = VecF< VecF<double> >(kMax+1);
-//    for(int i=0; i<=kMax; ++i){
-//        cnxDist[i] = VecF<double>(kMax+1);
-//        cnxDist[i] = 0.0;
-//    }
-//    for(int i=0; i<nF; ++i){
-//        int size0 = fSize[i];
-//        VecF<int> nl = fNL[i];
-//        for(int j=0; j<size0; ++j){
-//            int size1 = fSize[nl[j]];
-//            ++cnxDist[size0][size1];
-//        }
-//    }
-//    //Calculate q, check symmetric and q matches p
-//    VecF<double> q(kMax+1);
-//    q=0.0;
-//    for(int i=0; i<=kMax; ++i){
-//        for(int j=0; j<=kMax; ++j){
-//            q[i] += cnxDist[i][j];
-//            if(fabs(cnxDist[i][j]-cnxDist[j][i])>tol) logfile.criticalError("Error in network analysis");
-//        }
-//    }
-//    double norm = vSum(q);
-//    q /= norm;
-//    for(int i=0; i<=kMax; ++i) cnxDist[i] /= norm;
-//    double qCheck=0.0;
-//    for(int i=0; i<=kMax; ++i){
-//        qCheck += fabs(q[i]-i*sizeDist[i]/meanSize);
-//    }
-//    if(qCheck>tol) logfile.criticalError("Error in network analysis");
-//    //Calculate assortativity
-//    assortativity = 0.0;
-//    for(int i=0; i<=kMax; ++i){
-//        for(int j=0; j<=kMax; ++j){
-//            assortativity += i*j*(cnxDist[i][j]-q[i]*q[j]);
-//        }
-//    }
-//    norm = vSum(k*k*q)-pow(vSum(k*q),2);
-//    assortativity /= norm;
-//}
+void VoronoiBinary2D::calculateDistributions(Logfile &logfile) {
+    //Calculate unnormalised size and area distributions for different types and connection distribution
+
+    //Set up vectors
+    double tol=1e-6;
+    VecF<double> k(maxSize+1);
+    sizeDistA = VecF<double>(maxSize+1);
+    sizeDistB = VecF<double>(maxSize+1);
+    sizeDistC = VecF<double>(maxSize+1);
+    areaDistA = VecF<double>(maxSize+1);
+    areaDistB = VecF<double>(maxSize+1);
+    cnxDist = VecF< VecF<double> >(maxSize+1);
+    sizeDistA = 0;
+    sizeDistB = 0;
+    sizeDistC = 0;
+    areaDistA = 0;
+    areaDistB = 0;
+    for(int i=0; i<=maxSize; ++i){
+        cnxDist[i] = VecF<double>(maxSize+1);
+        cnxDist[i] = 0;
+    }
+
+    //A size and area
+    for(int i=0; i<nA; ++i){
+        int size = sizeA[i];
+        ++sizeDistA[size];
+        areaDistA[size] += areaA[i];
+    }
+
+    //B size and area
+    for(int i=0; i<nB; ++i){
+        int size = sizeB[i];
+        ++sizeDistB[size];
+        areaDistB[size] += areaB[i];
+    }
+
+    //Combined size
+    sizeDistC = sizeDistA+sizeDistB;
+
+    //Connections
+    for(int i=0; i<nA; ++i){
+        int s0 = sizeA[i];
+        VecF<int> nl=nbListAB[i];
+        for(int j=0; j<s0; ++j){
+            int k = nl[j];
+            int s1;
+            if(k<nA) s1 = sizeA[k];
+            else s1 = sizeB[k-nA];
+            ++cnxDist[s0][s1];
+        }
+    }
+    for(int i=0; i<nB; ++i){
+        int s0 = sizeB[i];
+        VecF<int> nl=nbListAB[nA+i];
+        for(int j=0; j<s0; ++j){
+            int k = nl[j];
+            int s1;
+            if(k<nA) s1 = sizeA[k];
+            else s1 = sizeB[k-nA];
+            ++cnxDist[s0][s1];
+        }
+    }
+
+    //Check connections symmetric
+    bool symmetric = true;
+    for(int i=0; i<=maxSize; ++i){
+        for(int j=0; j<=maxSize; ++j){
+            if(fabs(cnxDist[i][j]-cnxDist[j][i])>tol) symmetric=false;
+            if(!symmetric) break;
+        }
+    }
+    if(!symmetric) logfile.criticalError("Error in conversion to 2D Voronoi");
+}
+
+void VoronoiBinary2D::getDistributions(VecF<double> &sA, VecF<double> &sB, VecF<double> &sC, VecF<double> &aA,
+                                       VecF<double> &aB, VecF<VecF<double> > &e) {
+    //Get unnormalised distributions
+
+    sA = sizeDistA;
+    sB = sizeDistB;
+    sC = sizeDistC;
+    aA = areaDistA;
+    aB = areaDistB;
+    e = cnxDist;
+}
+

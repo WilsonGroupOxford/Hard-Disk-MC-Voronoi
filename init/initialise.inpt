@@ -4,8 +4,8 @@ I/0
 System Properties
 1600           number of colloid particles
 1.0             size ratio (gamma=r_l/r_s)
-0.0             composition (q=phi_l/phi_t)
-0.4             total packing fraction
+0.2            composition (q=phi_l/phi_t)
+0.45             total packing fraction
 ---------------------------------------------------
 Monte Carlo Settings
 0          random seed

@@ -5,6 +5,7 @@
 #include <fstream>
 #include <sstream>
 #include <iomanip>
+#include <stdio.h>
 #include "outputfile.h"
 #include "vecf.h"
 #include "../voro++/src/voro++.hh"
@@ -29,7 +30,8 @@ private:
 
     //Voronoi variables
     VecF<double> vorPKA,vorPKB,vorPKC; //ring distribution functions of type a,b,total
-    VecF<double> vorARA,vorARB,vorARC; //area distirbution for each type,a,b,total
+    VecF<double> vorARA,vorARB; //area distirbution for each type,a,b
+    VecF< VecF<double> > vorE; //edge distribution in delaunnay
 
 public:
 
@@ -43,7 +45,11 @@ public:
     void rdf(Logfile& logfile);
     void rdfFinalise(string prefix, Logfile& logfile);
     void setVoronoi(Logfile& logfile);
-    void voronoi(ofstream &vorFileA, ofstream &vorFileB, ofstream &vorFileC, Logfile& logfile);
+    void voronoi(ofstream &vorFilePKA, ofstream &vorFilePKB, ofstream &vorFilePKC,
+                 ofstream &vorFileARA, ofstream &vorFileARB, ofstream &vorFileNet,Logfile& logfile);
+    void voronoiFinalise(ofstream &vorFilePKA, ofstream &vorFilePKB, ofstream &vorFilePKC,
+                 ofstream &vorFileARA, ofstream &vorFileARB, ofstream &vorFileNet, Logfile& logfile);
+
 };
 
 

@@ -188,14 +188,23 @@ void Configuration::setVoronoi(Logfile &logfile) {
     vorPKC = VecF<double>(maxK+1);
     vorARA = VecF<double>(maxK+1);
     vorARB = VecF<double>(maxK+1);
-    vorARC = VecF<double>(maxK+1);
+    vorE = VecF< VecF<double> >(maxK+1);
+    vorPKA = 0;
+    vorPKB = 0;
+    vorPKC = 0;
+    vorARA = 0;
+    vorARB = 0;
+    for(int i=0; i<=maxK; ++i){
+        vorE[i] = VecF<double>(maxK+1);
+        vorE[i] = 0;
+    }
 }
 
-void Configuration::voronoi(ofstream &vorFileA, ofstream &vorFileB, ofstream &vorFileC, Logfile &logfile) {
+void Configuration::voronoi(ofstream &vorFilePKA, ofstream &vorFilePKB, ofstream &vorFilePKC, ofstream &vorFileARA,
+                            ofstream &vorFileARB, ofstream &vorFileNet, Logfile &logfile) {
     //Voronoi analysis
 
     //Initialise Voronoi and add configuration coordinates
-    logfile.write("Voronoi");
     voro::container vor3D(-cellLen_2,cellLen_2,-cellLen_2,cellLen_2,-0.5,0.5,3,3,3,true,true,false,nC);
     for(int i=0; i<nA; ++i) vor3D.put(i,xA[i],yA[i],0.0);
     for(int i=0, j=nA; i<nB; ++i,++j) vor3D.put(j,xB[i],yB[i],0.0);
@@ -207,15 +216,171 @@ void Configuration::voronoi(ofstream &vorFileA, ofstream &vorFileB, ofstream &vo
     vor3D.print_custom("%n","./vorN.tmp");
     vor3D.print_custom("%l","./vorV.tmp");
 
-    //Read into 2D Voronoi, analyse and extract data
-    Voronoi2D vor2D(nA,nB,vorARA.n-1,logfile);
+    //Read into 2D Voronoi and extract unnormalised distributions
+    int maxK = 20;
+    VecF<double> pA,pB,pC,aA,aB;
+    VecF< VecF<double> > e;
+    VoronoiBinary2D vor2D(nA,nB,maxK,logfile);
+    vor2D.getDistributions(pA,pB,pC,aA,aB,e);
 
+    //Add to running total distributions
+    vorPKA += pA;
+    vorPKB += pB;
+    vorPKC += pC;
+    vorARA += aA;
+    vorARB += aB;
+    for(int i=0; i<=maxK; ++i) vorE[i] += e[i];
 
+    //Normalise distributions
+    VecF<double> k(maxK+1);
+    for(int i=0; i<=maxK; ++i) k[i]=i;
+    for(int i=0; i<=maxK; ++i){
+        if(pA[i]>0) aA[i] /= pA[i];
+        if(pB[i]>0) aB[i] /= pB[i];
+    }
+    if(nA>0) pA /= nA;
+    if(nB>0) pB /= nB;
+    pC /= nC;
+    VecF<double> q(maxK+1);
+    for(int i=0; i<=maxK; ++i) q[i] = vSum(e[i]);
+    double normE = vSum(q);
+    for(int i=0; i<=maxK; ++i) e[i] /= normE;
+    q /= normE;
 
+    //Calculate distirbution metrics
+    double meanA,meanB,meanC,varA,varB,varC;
+    meanA = vSum(k*pA);
+    meanB = vSum(k*pB);
+    meanC = vSum(k*pC);
+    varA = vSum(k*k*pA)-meanA*meanA;
+    varB = vSum(k*k*pB)-meanB*meanB;
+    varC = vSum(k*k*pC)-meanC*meanC;
+    double assortativity=0.0;
+    for(int i=0; i<=maxK; ++i){
+        for(int j=0; j<=maxK; ++j){
+            assortativity += i*j*(e[i][j]-q[i]*q[j]);
+        }
+    }
+    assortativity /= vSum(k*k*q)-pow(vSum(k*q),2);
+    VecR<double> awX(0,maxK+1),awY(0,maxK+1);
+    for(int i=0; i<=maxK; ++i){
+        if(pC[i]>0){
+            awX.addValue(6.0*(i-6.0));
+            awY.addValue(i*vSum(k*e[i])/q[i]);
+        }
+    }
+    VecR<double> aw=vLinearRegression(awX,awY);
+    double awA = 1.0-aw[0];
+    double awVar = aw[1]-36.0;
+    double awRSq = aw[2];
 
-//    vor2D.networkAnalysis(vorPKA.n-1,logfile);
+    //Write to files
+    for(int i=0; i<=maxK; ++i){
+        vorFilePKA<<setw(20)<<left<<pA[i];
+        vorFilePKB<<setw(20)<<left<<pB[i];
+        vorFilePKC<<setw(20)<<left<<pC[i];
+        vorFileARA<<setw(20)<<left<<aA[i];
+        vorFileARB<<setw(20)<<left<<aB[i];
+    }
+    vorFilePKA<<endl;
+    vorFilePKB<<endl;
+    vorFilePKC<<endl;
+    vorFileARA<<endl;
+    vorFileARB<<endl;
+    vorFileNet<<setw(20)<<left<<meanA;
+    vorFileNet<<setw(20)<<left<<meanB;
+    vorFileNet<<setw(20)<<left<<meanC;
+    vorFileNet<<setw(20)<<left<<varA;
+    vorFileNet<<setw(20)<<left<<varB;
+    vorFileNet<<setw(20)<<left<<varC;
+    vorFileNet<<setw(20)<<left<<assortativity;
+    vorFileNet<<setw(20)<<left<<awA;
+    vorFileNet<<setw(20)<<left<<awVar;
+    vorFileNet<<setw(20)<<left<<awRSq;
+    vorFileNet<<endl;
+}
 
+void Configuration::voronoiFinalise(ofstream &vorFilePKA, ofstream &vorFilePKB, ofstream &vorFilePKC, ofstream &vorFileARA,
+                            ofstream &vorFileARB, ofstream &vorFileNet, Logfile &logfile) {
+    //Analyse distributions from all frames
 
+    //Normalise distributions
+    int maxK = 20;
+    VecF<double> k(maxK+1);
+    for(int i=0; i<=maxK; ++i) k[i]=i;
+    for(int i=0; i<=maxK; ++i){
+        if(vorPKA[i]>0) vorARA[i] /= vorPKA[i];
+        if(vorPKB[i]>0) vorARB[i] /= vorPKB[i];
+    }
+    if(nA>0) vorPKA /= nA*nCrdSets;
+    if(nB>0) vorPKB /= nB*nCrdSets;
+    vorPKC /= nC*nCrdSets;
+    VecF<double> q(maxK+1);
+    for(int i=0; i<=maxK; ++i) q[i] = vSum(vorE[i]);
+    double normE = vSum(q);
+    for(int i=0; i<=maxK; ++i) vorE[i] /= normE;
+    q /= normE;
 
-    exit(1);
+    //Calculate distirbution metrics
+    double meanA,meanB,meanC,varA,varB,varC;
+    meanA = vSum(k*vorPKA);
+    meanB = vSum(k*vorPKB);
+    meanC = vSum(k*vorPKC);
+    varA = vSum(k*k*vorPKA)-meanA*meanA;
+    varB = vSum(k*k*vorPKB)-meanB*meanB;
+    varC = vSum(k*k*vorPKC)-meanC*meanC;
+    double assortativity=0.0;
+    for(int i=0; i<=maxK; ++i){
+        for(int j=0; j<=maxK; ++j){
+            assortativity += i*j*(vorE[i][j]-q[i]*q[j]);
+        }
+    }
+    assortativity /= vSum(k*k*q)-pow(vSum(k*q),2);
+    VecR<double> awX(0,maxK+1),awY(0,maxK+1);
+    for(int i=0; i<=maxK; ++i){
+        if(vorPKC[i]>0){
+            awX.addValue(6.0*(i-6.0));
+            awY.addValue(i*vSum(k*vorE[i])/q[i]);
+        }
+    }
+    VecR<double> aw=vLinearRegression(awX,awY);
+    double awA = 1.0-aw[0];
+    double awVar = aw[1]-36.0;
+    double awRSq = aw[2];
+
+    //Write to files
+    for(int i=0; i<=maxK; ++i){
+        vorFilePKA<<setw(20)<<left<<vorPKA[i];
+        vorFilePKB<<setw(20)<<left<<vorPKB[i];
+        vorFilePKC<<setw(20)<<left<<vorPKC[i];
+        vorFileARA<<setw(20)<<left<<vorARA[i];
+        vorFileARB<<setw(20)<<left<<vorARB[i];
+    }
+    vorFilePKA<<endl;
+    vorFilePKB<<endl;
+    vorFilePKC<<endl;
+    vorFileARA<<endl;
+    vorFileARB<<endl;
+    vorFileNet<<setw(20)<<left<<meanA;
+    vorFileNet<<setw(20)<<left<<meanB;
+    vorFileNet<<setw(20)<<left<<meanC;
+    vorFileNet<<setw(20)<<left<<varA;
+    vorFileNet<<setw(20)<<left<<varB;
+    vorFileNet<<setw(20)<<left<<varC;
+    vorFileNet<<setw(20)<<left<<assortativity;
+    vorFileNet<<setw(20)<<left<<awA;
+    vorFileNet<<setw(20)<<left<<awVar;
+    vorFileNet<<setw(20)<<left<<awRSq;
+    vorFileNet<<endl;
+
+    //Close files
+    vorFilePKA.close();
+    vorFilePKB.close();
+    vorFilePKC.close();
+    vorFileARA.close();
+    vorFileARB.close();
+    vorFileNet.close();
+
+    //Remove any .tmp files
+    remove("*.tmp");
 }

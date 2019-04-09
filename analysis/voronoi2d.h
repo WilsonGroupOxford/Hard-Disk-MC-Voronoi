@@ -16,7 +16,7 @@
 
 using namespace std;
 
-class Voronoi2D {
+class VoronoiBinary2D {
     //2D binary Voronoi diagram converted from voro++ output files
 
 private:
@@ -28,24 +28,23 @@ private:
     VecF<double> areaA, areaB; //areas of rings of each type
     VecF< VecF<int> > nbListAB; //neighbour list for both type a and b
 
-
-
-
-
     //Analysis variables
-    double meanSize,varSize; //mean and variance of face distribution
-    double assortativity; //assortative mixing of Delaunnay
-    VecF<double> sizeDist, areaDist; //distribution of sizes and areas
-    VecF< VecF<double> > cnxDist; //distribution of edges in Delaunnay
+    VecF<double> sizeDistA, sizeDistB, sizeDistC; //unnormalised ring size distributions
+    VecF<double> areaDistA, areaDistB; //unnormalised ring area distributions
+    VecF< VecF<double> > cnxDist; //unnormalised distribution of edges in delaunnay
+
+    //Member functions
+    void calculateDistributions(Logfile &logfile); //calculate size,area and cnx distributions
 
 public:
 
     //Constructors
-    Voronoi2D();
-    Voronoi2D(int numA, int numB, int maxS, Logfile &logfile);
-    void networkAnalysis(int kMax, Logfile &logfile); //calculate network properties
+    VoronoiBinary2D();
+    VoronoiBinary2D(int numA, int numB, int maxS, Logfile &logfile);
 
-
+    //Getters
+    void getDistributions(VecF<double> &sA, VecF<double> &sB, VecF<double> &sC,
+            VecF<double> &aA, VecF<double> &aB, VecF< VecF<double> > &e);
 };
 
 
