@@ -373,14 +373,6 @@ void Configuration::voronoiFinalise(ofstream &vorFilePKA, ofstream &vorFilePKB, 
     vorFileNet<<setw(20)<<left<<awRSq;
     vorFileNet<<endl;
 
-    //Close files
-    vorFilePKA.close();
-    vorFilePKB.close();
-    vorFilePKC.close();
-    vorFileARA.close();
-    vorFileARB.close();
-    vorFileNet.close();
-
     //Remove any .tmp files
-    remove("*.tmp");
+    system("rm *.tmp");
 }

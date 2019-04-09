@@ -36,7 +36,16 @@ VoronoiBinary2D::VoronoiBinary2D(int numA, int numB, int maxS, Logfile &logfile)
     for (int i=0; i<nC; ++i){
         //Extract normal vectors as (x,y,z) and convert to x y z
         getline(vecFile,line);
-        istringstream ss{regex_replace(line, regex{R"(\(|\)|,)"}, " ")};
+        int j = 0;
+        while(j<line.size()){
+            if(line[j] == '(' || line[j] == ')') line.erase(j,1);
+            else if(line[j] == ','){
+                line.replace(j,1," ");
+                ++j;
+            }
+            else ++j;
+        }
+        istringstream ss(line);
         double normalComponent;
         int xyz=0; //0=x,1=y,2=z
         int pos=0;

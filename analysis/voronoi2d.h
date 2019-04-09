@@ -7,7 +7,6 @@
 #include <fstream>
 #include <sstream>
 #include <iomanip>
-#include <regex>
 #include <cmath>
 #include "outputfile.h"
 #include "vecf.h"

@@ -1,5 +1,6 @@
 #include <iostream>
 #include <sstream>
+#include <stdio.h>
 #include <cmath>
 #include "outputfile.h"
 #include "configuration.h"
@@ -20,12 +21,12 @@ int main(int argc, char **argv) {
     ifstream inputFile("analysis.inpt", ios::in);
     if(!inputFile.good()) logfile.criticalError("Cannot find input file");
     string skip,line;
-    double cutProportion; //proportion of configurations to cut
+    int nConfigs; //total number of configurations to analyse
     int rdfAnalysis,vorAnalysis,radAnalysis; //analysis types
     double rdfDelta,rdfExtent; //bin increment and maximum value
     getline(inputFile,skip);
     getline(inputFile,line);
-    istringstream(line)>>cutProportion;
+    istringstream(line)>>nConfigs;
     getline(inputFile,skip);
     getline(inputFile,skip);
     getline(inputFile,line);
@@ -70,7 +71,8 @@ int main(int argc, char **argv) {
     istringstream(line)>>nCycleProd;
     getline(inputAuxFile,line);
     istringstream(line)>>cycleWriteFreq;
-    int nConfigs = floor(nCycleProd/cycleWriteFreq)+1;
+    //read in number of configurations from input file to allow for merging of results files
+//    int nConfigs = floor(nCycleProd/cycleWriteFreq)+1;
 
     //Summarise selection in log file
     logfile.write("Analysis selections");
@@ -89,16 +91,15 @@ int main(int argc, char **argv) {
     logfile.write("XYZ file opened");
 
     //Set up configuration and output files
-    ofstream vorFilePKA,vorFilePKB,vorFilePKC,vorFileARA,vorFileARB,vorFileNet;
+    ofstream vorFilePKA(prefix+"_vor_pka.dat", ios::in | ios::trunc);
+    ofstream vorFilePKB(prefix+"_vor_pkb.dat", ios::in | ios::trunc);
+    ofstream vorFilePKC(prefix+"_vor_pkc.dat", ios::in | ios::trunc);
+    ofstream vorFileARA(prefix+"_vor_ara.dat", ios::in | ios::trunc);
+    ofstream vorFileARB(prefix+"_vor_arb.dat", ios::in | ios::trunc);
+    ofstream vorFileNet(prefix+"_vor_net.dat", ios::in | ios::trunc);
     Configuration config(nA,nB,rA,rB,cellLength); //set up configuration
     if(rdfAnalysis) config.setRdf(rdfDelta,rdfExtent);
     if(vorAnalysis){
-        vorFilePKA = ofstream(prefix+"_vor_pka.dat", ios::in | ios::trunc);
-        vorFilePKB = ofstream(prefix+"_vor_pkb.dat", ios::in | ios::trunc);
-        vorFilePKC = ofstream(prefix+"_vor_pkc.dat", ios::in | ios::trunc);
-        vorFileARA = ofstream(prefix+"_vor_ara.dat", ios::in | ios::trunc);
-        vorFileARB = ofstream(prefix+"_vor_arb.dat", ios::in | ios::trunc);
-        vorFileNet = ofstream(prefix+"_vor_net.dat", ios::in | ios::trunc);
         vorFilePKA << fixed << showpoint << setprecision(8);
         vorFilePKB << fixed << showpoint << setprecision(8);
         vorFilePKC << fixed << showpoint << setprecision(8);
@@ -122,6 +123,19 @@ int main(int argc, char **argv) {
     //Finalise analyses
     if(rdfAnalysis) config.rdfFinalise(prefix,logfile);
     if(vorAnalysis) config.voronoiFinalise(vorFilePKA,vorFilePKB,vorFilePKC,vorFileARA,vorFileARB,vorFileNet,logfile);
+
+    //Close files and remove any unnecessary files
+    vorFilePKA.close();
+    vorFilePKB.close();
+    vorFilePKC.close();
+    vorFileARA.close();
+    vorFileARB.close();
+    vorFileNet.close();
+    if(!vorAnalysis){
+        string removeFiles = "rm " + prefix + "_vor*.dat";
+        const char *rm = (removeFiles).c_str();
+        system(rm);
+    }
 
     logfile.separator();
     return 0;
