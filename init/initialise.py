@@ -103,12 +103,12 @@ class Initialiser:
 
 
     def setup_lattice(self):
-        """Set up initial ordered lattice"""
+        """Set up initial lattice"""
 
         # Make lattice out of blocks of same size
         # Each block contains type a or b in square arrangement
         # Pad with void blocks - limits maximum possible packing fraction
-        self.log('Constructing ordered lattice')
+        self.log('Constructing lattice')
 
         # Calculate occupancy of each block from size ratio
         if self.r_b-int(self.r_b)<1e-6:
@@ -127,7 +127,7 @@ class Initialiser:
         num_part_block_b = int(excess_b>0)
         total_blocks = num_block_a+num_block_b+num_part_block_a+num_part_block_b
         total_blocks = int(np.ceil(np.sqrt(total_blocks))**2)
-        void_blocks = total_blocks-num_block_a-num_block_b-num_part_block_a-num_part_block_b
+        num_void_blocks = total_blocks-num_block_a-num_block_b-num_part_block_a-num_part_block_b
         check_na = num_block_a*block_a_capacity+num_part_block_a*excess_a!=self.n_a
         check_nb = num_block_b*block_b_capacity+num_part_block_b*excess_b!=self.n_b
         area_needed = total_blocks*(2.0*self.r_a*block_a_dim)**2
@@ -139,13 +139,13 @@ class Initialiser:
         self.log('Partial block capacity (A,B): {} {}'.format(excess_a,excess_b),indent=1)
         self.log('Full blocks (A,B): {} {}'.format(num_block_a,num_block_b),indent=1)
         self.log('Partial blocks (A,B): {} {}'.format(num_part_block_b,num_part_block_b),indent=1)
-        self.log('Void blocks: {}'.format(void_blocks),indent=1)
+        self.log('Void blocks: {}'.format(num_void_blocks),indent=1)
         self.log('Area (required,cell): {:8.2f} {:8.2f}'.format(area_needed,self.cell_area),indent=1)
         # Cannot construct if required area is larger than cell limits, kill process
         if area_needed>self.cell_area:
             self.log.error('Algorithmic failure 2 - cannot construct initial lattice at this composition and packing fraction')
 
-        # Arrange blocks in unmixed state
+        # Set up blocks
         block_dim = np.sqrt(self.cell_area/total_blocks)
         block_a_crds = np.zeros((block_a_capacity,2))
         block_b_crds = np.zeros((block_b_capacity,2))
@@ -161,53 +161,100 @@ class Initialiser:
                 block_b_crds[k,0] = j*2*self.r_b+self.r_b
                 block_b_crds[k,1] = i*2*self.r_b+self.r_b
                 k += 1
+        block_stretch = block_dim / (2*block_b_dim*self.r_b)
+        block_a_crds *= block_stretch
+        block_b_crds *= block_stretch
         self.crds_a = np.zeros((self.n_a,2))
         self.crds_b = np.zeros((self.n_b,2))
         x_blocks = int(np.sqrt(total_blocks))
         y_blocks = int(np.sqrt(total_blocks))
-        # A blocks
-        block = 0
-        count_a = 0
+        # Arrange blocks randomly
+        random_generator = np.random.RandomState(self.random_seed)
+        block_list = []
         for i in range(num_block_a):
-            x = block%x_blocks
-            y = block//y_blocks
-            block_crd = np.array([x*block_dim,y*block_dim])
-            block_crds = block_a_crds + block_crd
-            for crd in block_crds:
-                self.crds_a[count_a,:] = crd
-                count_a += 1
-            block += 1
-        # A partial blocks
+            block_list.append(0)
         for i in range(num_part_block_a):
-            x = block%x_blocks
-            y = block//y_blocks
-            block_crd = np.array([x*block_dim,y*block_dim])
-            block_crds = block_a_crds + block_crd
-            for crd in block_crds[:excess_a,:]:
-                self.crds_a[count_a,:] = crd
-                count_a += 1
-            block += 1
-        # B blocks
-        count_b = 0
+            block_list.append(1)
         for i in range(num_block_b):
-            x = block%x_blocks
-            y = block//y_blocks
-            block_crd = np.array([x*block_dim,y*block_dim])
-            block_crds = block_b_crds + block_crd
-            for crd in block_crds:
-                self.crds_b[count_b,:] = crd
-                count_b += 1
-            block += 1
-        # B remainder blocks
+            block_list.append(2)
         for i in range(num_part_block_b):
-            x = block%x_blocks
-            y = block//y_blocks
+            block_list.append(3)
+        for i in range(num_void_blocks):
+            block_list.append(4)
+        count_a = 0
+        count_b = 0
+        for i in range(total_blocks):
+            block_type = block_list.pop(random_generator.randint(0,total_blocks-i))
+            x = i%x_blocks
+            y = i//y_blocks
             block_crd = np.array([x*block_dim,y*block_dim])
-            block_crds = block_b_crds + block_crd
-            for crd in block_crds[:excess_b,:]:
-                self.crds_b[count_b,:] = crd
-                count_b += 1
-            block += 1
+            if block_type == 0:
+                block_crds = block_a_crds + block_crd
+                for crd in block_crds:
+                    self.crds_a[count_a,:] = crd
+                    count_a += 1
+            elif block_type == 1:
+                block_crds = block_a_crds + block_crd
+                for crd in block_crds[:excess_a,:]:
+                    self.crds_a[count_a,:] = crd
+                    count_a += 1
+            elif block_type == 2:
+                block_crds = block_b_crds + block_crd
+                for crd in block_crds:
+                    self.crds_b[count_b,:] = crd
+                    count_b += 1
+            elif block_type == 3:
+                block_crds = block_b_crds + block_crd
+                for crd in block_crds[:excess_b,:]:
+                    self.crds_b[count_b,:] = crd
+                    count_b += 1
+            else:
+                pass
+
+        # # Fully ordered arrangement
+        # # A blocks
+        # block = 0
+        # count_a = 0
+        # for i in range(num_block_a):
+        #     x = block%x_blocks
+        #     y = block//y_blocks
+        #     block_crd = np.array([x*block_dim,y*block_dim])
+        #     block_crds = block_a_crds + block_crd
+        #     for crd in block_crds:
+        #         self.crds_a[count_a,:] = crd
+        #         count_a += 1
+        #     block += 1
+        # # A partial blocks
+        # for i in range(num_part_block_a):
+        #     x = block%x_blocks
+        #     y = block//y_blocks
+        #     block_crd = np.array([x*block_dim,y*block_dim])
+        #     block_crds = block_a_crds + block_crd
+        #     for crd in block_crds[:excess_a,:]:
+        #         self.crds_a[count_a,:] = crd
+        #         count_a += 1
+        #     block += 1
+        # # B blocks
+        # count_b = 0
+        # for i in range(num_block_b):
+        #     x = block%x_blocks
+        #     y = block//y_blocks
+        #     block_crd = np.array([x*block_dim,y*block_dim])
+        #     block_crds = block_b_crds + block_crd
+        #     for crd in block_crds:
+        #         self.crds_b[count_b,:] = crd
+        #         count_b += 1
+        #     block += 1
+        # # B remainder blocks
+        # for i in range(num_part_block_b):
+        #     x = block%x_blocks
+        #     y = block//y_blocks
+        #     block_crd = np.array([x*block_dim,y*block_dim])
+        #     block_crds = block_b_crds + block_crd
+        #     for crd in block_crds[:excess_b,:]:
+        #         self.crds_b[count_b,:] = crd
+        #         count_b += 1
+        #     block += 1
         # Recentre on origin
         self.crds_a -= self.min_image_distance
         self.crds_b -= self.min_image_distance
@@ -299,7 +346,7 @@ class Initialiser:
             f_xyz = open('{}.xyz'.format(self.output_prefix),'w')
         else:
             f_xyz = open('{}_{}.xyz'.format(self.output_prefix,keyword),'w')
-        
+
         # Number of particles, blank line
         f_xyz.write('{} \n \n'.format(self.n))
 
