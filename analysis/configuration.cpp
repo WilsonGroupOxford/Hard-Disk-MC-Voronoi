@@ -2,14 +2,14 @@
 
 Configuration::Configuration() {}
 
-Configuration::Configuration(int numA, int numB, double radA, double radB, double cellLength) {
+Configuration::Configuration(int numA, int numB, double radiusA, double radiusB, double cellLength) {
     //Construct with configuration information
 
     //Assign
     nA = numA;
     nB = numB;
-    rA = radA;
-    rB = radB;
+    rA = radiusA;
+    rB = radiusB;
     cellLen = cellLength;
 
     //Additional
@@ -17,6 +17,8 @@ Configuration::Configuration(int numA, int numB, double radA, double radB, doubl
     nC = nA+nB;
     rCellLen = 1.0/cellLen;
     cellLen_2 = cellLen/2;
+    wA = 2*rA*sqrt(rA*rB)/(rA+rB);
+    wB = 2*sqrt(rA*rB)*(1-rA/(rA+rB));
     xA = VecF<double>(nA);
     yA = VecF<double>(nA);
     xB = VecF<double>(nB);
@@ -205,7 +207,7 @@ void Configuration::voronoi(ofstream &vorFilePKA, ofstream &vorFilePKB, ofstream
     //Voronoi analysis
 
     //Initialise Voronoi and add configuration coordinates
-    voro::container vor3D(-cellLen_2,cellLen_2,-cellLen_2,cellLen_2,-0.5,0.5,3,3,3,true,true,false,nC);
+    voro::container vor3D(-cellLen_2,cellLen_2,-cellLen_2,cellLen_2,-0.5,0.5,10,10,1,true,true,false,nC);
     for(int i=0; i<nA; ++i) vor3D.put(i,xA[i],yA[i],0.0);
     for(int i=0, j=nA; i<nB; ++i,++j) vor3D.put(j,xB[i],yB[i],0.0);
 
@@ -220,7 +222,7 @@ void Configuration::voronoi(ofstream &vorFilePKA, ofstream &vorFilePKB, ofstream
     int maxK = 20;
     VecF<double> pA,pB,pC,aA,aB;
     VecF< VecF<double> > e;
-    VoronoiBinary2D vor2D(nA,nB,maxK,logfile);
+    VoronoiBinary2D vor2D(nA,nB,maxK,false,logfile);
     vor2D.getDistributions(pA,pB,pC,aA,aB,e);
 
     //Add to running total distributions
@@ -374,5 +376,205 @@ void Configuration::voronoiFinalise(ofstream &vorFilePKA, ofstream &vorFilePKB, 
     vorFileNet<<endl;
 
     //Remove any .tmp files
-    system("rm *.tmp");
+    system("rm -f *.tmp");
+}
+
+void Configuration::setRadical(Logfile &logfile) {
+    //Initialise ring distributions for type a, b and total
+
+    //Maximum size arbitrary
+    int maxK = 20;
+    radPKA = VecF<double>(maxK+1);
+    radPKB = VecF<double>(maxK+1);
+    radPKC = VecF<double>(maxK+1);
+    radARA = VecF<double>(maxK+1);
+    radARB = VecF<double>(maxK+1);
+    radE = VecF< VecF<double> >(maxK+1);
+    radPKA = 0;
+    radPKB = 0;
+    radPKC = 0;
+    radARA = 0;
+    radARB = 0;
+    for(int i=0; i<=maxK; ++i){
+        radE[i] = VecF<double>(maxK+1);
+        radE[i] = 0;
+    }
+}
+
+void Configuration::radical(ofstream &radFilePKA, ofstream &radFilePKB, ofstream &radFilePKC, ofstream &radFileARA,
+                            ofstream &radFileARB, ofstream &radFileNet, Logfile &logfile) {
+    //Radical Voronoi analysis
+
+    //Initialise radical Voronoi and add configuration coordinates
+    voro::container_poly rad3D(-cellLen_2,cellLen_2,-cellLen_2,cellLen_2,-0.5,0.5,10,10,1,true,true,false,nC);
+    for(int i=0; i<nA; ++i) rad3D.put(i,xA[i],yA[i],0.0,wA);
+    for(int i=0, j=nA; i<nB; ++i,++j) rad3D.put(j,xB[i],yB[i],0.0,wB);
+
+    //Calculate Voronoi and generate temporary files
+    rad3D.print_custom("%i","./radI.tmp");
+    rad3D.print_custom("%a","./radK.tmp");
+    rad3D.print_custom("%f","./radA.tmp");
+    rad3D.print_custom("%n","./radN.tmp");
+    rad3D.print_custom("%l","./radV.tmp");
+
+    //Read into 2D Voronoi and extract unnormalised distributions
+    int maxK = 20;
+    VecF<double> pA,pB,pC,aA,aB;
+    VecF< VecF<double> > e;
+    VoronoiBinary2D rad2D(nA,nB,maxK,true,logfile);
+    rad2D.getDistributions(pA,pB,pC,aA,aB,e);
+
+    //Add to running total distributions
+    radPKA += pA;
+    radPKB += pB;
+    radPKC += pC;
+    radARA += aA;
+    radARB += aB;
+    for(int i=0; i<=maxK; ++i) radE[i] += e[i];
+
+    //Normalise distributions
+    VecF<double> k(maxK+1);
+    for(int i=0; i<=maxK; ++i) k[i]=i;
+    for(int i=0; i<=maxK; ++i){
+        if(pA[i]>0) aA[i] /= pA[i];
+        if(pB[i]>0) aB[i] /= pB[i];
+    }
+    if(nA>0) pA /= nA;
+    if(nB>0) pB /= nB;
+    pC /= nC;
+    VecF<double> q(maxK+1);
+    for(int i=0; i<=maxK; ++i) q[i] = vSum(e[i]);
+    double normE = vSum(q);
+    for(int i=0; i<=maxK; ++i) e[i] /= normE;
+    q /= normE;
+
+    //Calculate distirbution metrics
+    double meanA,meanB,meanC,varA,varB,varC;
+    meanA = vSum(k*pA);
+    meanB = vSum(k*pB);
+    meanC = vSum(k*pC);
+    varA = vSum(k*k*pA)-meanA*meanA;
+    varB = vSum(k*k*pB)-meanB*meanB;
+    varC = vSum(k*k*pC)-meanC*meanC;
+    double assortativity=0.0;
+    for(int i=0; i<=maxK; ++i){
+        for(int j=0; j<=maxK; ++j){
+            assortativity += i*j*(e[i][j]-q[i]*q[j]);
+        }
+    }
+    assortativity /= vSum(k*k*q)-pow(vSum(k*q),2);
+    VecR<double> awX(0,maxK+1),awY(0,maxK+1);
+    for(int i=0; i<=maxK; ++i){
+        if(pC[i]>0){
+            awX.addValue(6.0*(i-6.0));
+            awY.addValue(i*vSum(k*e[i])/q[i]);
+        }
+    }
+    VecR<double> aw=vLinearRegression(awX,awY);
+    double awA = 1.0-aw[0];
+    double awVar = aw[1]-36.0;
+    double awRSq = aw[2];
+
+    //Write to files
+    for(int i=0; i<=maxK; ++i){
+        radFilePKA<<setw(20)<<left<<pA[i];
+        radFilePKB<<setw(20)<<left<<pB[i];
+        radFilePKC<<setw(20)<<left<<pC[i];
+        radFileARA<<setw(20)<<left<<aA[i];
+        radFileARB<<setw(20)<<left<<aB[i];
+    }
+    radFilePKA<<endl;
+    radFilePKB<<endl;
+    radFilePKC<<endl;
+    radFileARA<<endl;
+    radFileARB<<endl;
+    radFileNet<<setw(20)<<left<<meanA;
+    radFileNet<<setw(20)<<left<<meanB;
+    radFileNet<<setw(20)<<left<<meanC;
+    radFileNet<<setw(20)<<left<<varA;
+    radFileNet<<setw(20)<<left<<varB;
+    radFileNet<<setw(20)<<left<<varC;
+    radFileNet<<setw(20)<<left<<assortativity;
+    radFileNet<<setw(20)<<left<<awA;
+    radFileNet<<setw(20)<<left<<awVar;
+    radFileNet<<setw(20)<<left<<awRSq;
+    radFileNet<<endl;
+}
+
+void Configuration::radicalFinalise(ofstream &radFilePKA, ofstream &radFilePKB, ofstream &radFilePKC,
+                                    ofstream &radFileARA, ofstream &radFileARB, ofstream &radFileNet,
+                                    Logfile &logfile) {
+    //Analyse distributions from all frames
+
+    //Normalise distributions
+    int maxK = 20;
+    VecF<double> k(maxK+1);
+    for(int i=0; i<=maxK; ++i) k[i]=i;
+    for(int i=0; i<=maxK; ++i){
+        if(radPKA[i]>0) radARA[i] /= radPKA[i];
+        if(radPKB[i]>0) radARB[i] /= radPKB[i];
+    }
+    if(nA>0) radPKA /= nA*nCrdSets;
+    if(nB>0) radPKB /= nB*nCrdSets;
+    radPKC /= nC*nCrdSets;
+    VecF<double> q(maxK+1);
+    for(int i=0; i<=maxK; ++i) q[i] = vSum(radE[i]);
+    double normE = vSum(q);
+    for(int i=0; i<=maxK; ++i) radE[i] /= normE;
+    q /= normE;
+
+    //Calculate distirbution metrics
+    double meanA,meanB,meanC,varA,varB,varC;
+    meanA = vSum(k*radPKA);
+    meanB = vSum(k*radPKB);
+    meanC = vSum(k*radPKC);
+    varA = vSum(k*k*radPKA)-meanA*meanA;
+    varB = vSum(k*k*radPKB)-meanB*meanB;
+    varC = vSum(k*k*radPKC)-meanC*meanC;
+    double assortativity=0.0;
+    for(int i=0; i<=maxK; ++i){
+        for(int j=0; j<=maxK; ++j){
+            assortativity += i*j*(radE[i][j]-q[i]*q[j]);
+        }
+    }
+    assortativity /= vSum(k*k*q)-pow(vSum(k*q),2);
+    VecR<double> awX(0,maxK+1),awY(0,maxK+1);
+    for(int i=0; i<=maxK; ++i){
+        if(radPKC[i]>0){
+            awX.addValue(6.0*(i-6.0));
+            awY.addValue(i*vSum(k*radE[i])/q[i]);
+        }
+    }
+    VecR<double> aw=vLinearRegression(awX,awY);
+    double awA = 1.0-aw[0];
+    double awVar = aw[1]-36.0;
+    double awRSq = aw[2];
+
+    //Write to files
+    for(int i=0; i<=maxK; ++i){
+        radFilePKA<<setw(20)<<left<<radPKA[i];
+        radFilePKB<<setw(20)<<left<<radPKB[i];
+        radFilePKC<<setw(20)<<left<<radPKC[i];
+        radFileARA<<setw(20)<<left<<radARA[i];
+        radFileARB<<setw(20)<<left<<radARB[i];
+    }
+    radFilePKA<<endl;
+    radFilePKB<<endl;
+    radFilePKC<<endl;
+    radFileARA<<endl;
+    radFileARB<<endl;
+    radFileNet<<setw(20)<<left<<meanA;
+    radFileNet<<setw(20)<<left<<meanB;
+    radFileNet<<setw(20)<<left<<meanC;
+    radFileNet<<setw(20)<<left<<varA;
+    radFileNet<<setw(20)<<left<<varB;
+    radFileNet<<setw(20)<<left<<varC;
+    radFileNet<<setw(20)<<left<<assortativity;
+    radFileNet<<setw(20)<<left<<awA;
+    radFileNet<<setw(20)<<left<<awVar;
+    radFileNet<<setw(20)<<left<<awRSq;
+    radFileNet<<endl;
+
+    //Remove any .tmp files
+    system("rm -f *.tmp");
 }

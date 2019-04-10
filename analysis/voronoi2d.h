@@ -39,7 +39,7 @@ public:
 
     //Constructors
     VoronoiBinary2D();
-    VoronoiBinary2D(int numA, int numB, int maxS, Logfile &logfile);
+    VoronoiBinary2D(int numA, int numB, int maxS, bool radical, Logfile &logfile);
 
     //Getters
     void getDistributions(VecF<double> &sA, VecF<double> &sB, VecF<double> &sC,

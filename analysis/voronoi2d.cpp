@@ -2,7 +2,7 @@
 
 VoronoiBinary2D::VoronoiBinary2D() {}
 
-VoronoiBinary2D::VoronoiBinary2D(int numA, int numB, int maxS, Logfile &logfile) {
+VoronoiBinary2D::VoronoiBinary2D(int numA, int numB, int maxS, bool radical, Logfile &logfile) {
     //Convert output files from voro++ to 2D voronoi/delaunay triangulation
 
     //Assign
@@ -18,10 +18,27 @@ VoronoiBinary2D::VoronoiBinary2D(int numA, int numB, int maxS, Logfile &logfile)
     areaB = VecF<double>(nB);
     nbListAB = VecF< VecF<int> >(nC);
 
+    //Set up filenames
+    string filenameI,filenameV,filenameK,filenameA,filenameN;
+    if(!radical){
+        filenameI = "./vorI.tmp";
+        filenameV = "./vorV.tmp";
+        filenameK = "./vorK.tmp";
+        filenameA = "./vorA.tmp";
+        filenameN = "./vorN.tmp";
+    }
+    else{
+        filenameI = "./radI.tmp";
+        filenameV = "./radV.tmp";
+        filenameK = "./radK.tmp";
+        filenameA = "./radA.tmp";
+        filenameN = "./radN.tmp";
+    }
+
     //Read id data from .tmp files as faces not necessarily in the correct order
     string line;
     VecF<int> ids(nC);
-    ifstream idFile("./vorI.tmp", ios::in);
+    ifstream idFile(filenameI, ios::in);
     for(int i=0; i<nC; ++i){
         getline(idFile,line);
         istringstream(line)>>ids[i];
@@ -29,10 +46,10 @@ VoronoiBinary2D::VoronoiBinary2D(int numA, int numB, int maxS, Logfile &logfile)
 
     //To convert from 3D->2D need to retain only faces with normal as z-axis
     double tol=1e-6;
-    ifstream vecFile("./vorV.tmp", ios::in);
-    ifstream sizeFile("./vorK.tmp", ios::in);
-    ifstream areaFile("./vorA.tmp", ios::in);
-    ifstream nlFile("./vorN.tmp", ios::in);
+    ifstream vecFile(filenameV, ios::in);
+    ifstream sizeFile(filenameK, ios::in);
+    ifstream areaFile(filenameA, ios::in);
+    ifstream nlFile(filenameN, ios::in);
     for (int i=0; i<nC; ++i){
         //Extract normal vectors as (x,y,z) and convert to x y z
         getline(vecFile,line);

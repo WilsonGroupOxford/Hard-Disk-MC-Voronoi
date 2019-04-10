@@ -97,6 +97,12 @@ int main(int argc, char **argv) {
     ofstream vorFileARA(prefix+"_vor_ara.dat", ios::in | ios::trunc);
     ofstream vorFileARB(prefix+"_vor_arb.dat", ios::in | ios::trunc);
     ofstream vorFileNet(prefix+"_vor_net.dat", ios::in | ios::trunc);
+    ofstream radFilePKA(prefix+"_rad_pka.dat", ios::in | ios::trunc);
+    ofstream radFilePKB(prefix+"_rad_pkb.dat", ios::in | ios::trunc);
+    ofstream radFilePKC(prefix+"_rad_pkc.dat", ios::in | ios::trunc);
+    ofstream radFileARA(prefix+"_rad_ara.dat", ios::in | ios::trunc);
+    ofstream radFileARB(prefix+"_rad_arb.dat", ios::in | ios::trunc);
+    ofstream radFileNet(prefix+"_rad_net.dat", ios::in | ios::trunc);
     Configuration config(nA,nB,rA,rB,cellLength); //set up configuration
     if(rdfAnalysis) config.setRdf(rdfDelta,rdfExtent);
     if(vorAnalysis){
@@ -108,6 +114,15 @@ int main(int argc, char **argv) {
         vorFileNet << fixed << showpoint << setprecision(8);
         config.setVoronoi(logfile);
     }
+    if(radAnalysis){
+        radFilePKA << fixed << showpoint << setprecision(8);
+        radFilePKB << fixed << showpoint << setprecision(8);
+        radFilePKC << fixed << showpoint << setprecision(8);
+        radFileARA << fixed << showpoint << setprecision(8);
+        radFileARB << fixed << showpoint << setprecision(8);
+        radFileNet << fixed << showpoint << setprecision(8);
+        config.setRadical(logfile);
+    }
 
     //Analyse frame by frame
     for(int i=0; i<nConfigs; ++i){
@@ -115,6 +130,7 @@ int main(int argc, char **argv) {
         ++logfile.currIndent;
         if(rdfAnalysis) config.rdf(logfile);
         if(vorAnalysis) config.voronoi(vorFilePKA,vorFilePKB,vorFilePKC,vorFileARA,vorFileARB,vorFileNet,logfile);
+        if(radAnalysis) config.radical(radFilePKA,radFilePKB,radFilePKC,radFileARA,radFileARB,radFileNet,logfile);
         logfile.write("Configuration: ",i);
         cout<<i<<endl;
         --logfile.currIndent;
@@ -123,6 +139,7 @@ int main(int argc, char **argv) {
     //Finalise analyses
     if(rdfAnalysis) config.rdfFinalise(prefix,logfile);
     if(vorAnalysis) config.voronoiFinalise(vorFilePKA,vorFilePKB,vorFilePKC,vorFileARA,vorFileARB,vorFileNet,logfile);
+    if(radAnalysis) config.radicalFinalise(radFilePKA,radFilePKB,radFilePKC,radFileARA,radFileARB,radFileNet,logfile);
 
     //Close files and remove any unnecessary files
     vorFilePKA.close();
@@ -131,8 +148,19 @@ int main(int argc, char **argv) {
     vorFileARA.close();
     vorFileARB.close();
     vorFileNet.close();
+    radFilePKA.close();
+    radFilePKB.close();
+    radFilePKC.close();
+    radFileARA.close();
+    radFileARB.close();
+    radFileNet.close();
     if(!vorAnalysis){
         string removeFiles = "rm " + prefix + "_vor*.dat";
+        const char *rm = (removeFiles).c_str();
+        system(rm);
+    }
+    if(!radAnalysis){
+        string removeFiles = "rm " + prefix + "_rad*.dat";
         const char *rm = (removeFiles).c_str();
         system(rm);
     }
