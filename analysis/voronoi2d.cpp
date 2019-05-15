@@ -16,23 +16,39 @@ VoronoiBinary2D::VoronoiBinary2D(int numA, int numB, int maxS, bool radical, Log
     sizeB = VecF<int>(nB);
     areaA = VecF<double>(nA);
     areaB = VecF<double>(nB);
+    edgeA = VecF<double>(nA);
+    edgeB = VecF<double>(nB);
     nbListAB = VecF< VecF<int> >(nC);
+    lengthA = VecF<double>(3); //x,x^2 and nx
+    lengthB = VecF<double>(3);
+    angleA = VecF<double>(3);
+    angleB = VecF<double>(3);
+    lengthA = 0.0;
+    lengthB = 0.0;
+    angleA = 0.0;
+    angleB = 0.0;
 
     //Set up filenames
-    string filenameI,filenameV,filenameK,filenameA,filenameN;
+    string filenameI,filenameV,filenameK,filenameA,filenameE,filenameN,filenameT,filenameP;
     if(!radical){
         filenameI = "./vorI.tmp";
         filenameV = "./vorV.tmp";
         filenameK = "./vorK.tmp";
         filenameA = "./vorA.tmp";
+        filenameE = "./vorE.tmp";
         filenameN = "./vorN.tmp";
+        filenameT = "./vorT.tmp";
+        filenameP = "./vorP.tmp";
     }
     else{
         filenameI = "./radI.tmp";
         filenameV = "./radV.tmp";
         filenameK = "./radK.tmp";
         filenameA = "./radA.tmp";
+        filenameE = "./radE.tmp";
         filenameN = "./radN.tmp";
+        filenameT = "./radT.tmp";
+        filenameP = "./radP.tmp";
     }
 
     //Read id data from .tmp files as faces not necessarily in the correct order
@@ -49,7 +65,11 @@ VoronoiBinary2D::VoronoiBinary2D(int numA, int numB, int maxS, bool radical, Log
     ifstream vecFile(filenameV, ios::in);
     ifstream sizeFile(filenameK, ios::in);
     ifstream areaFile(filenameA, ios::in);
+    ifstream edgeFile(filenameE, ios::in);
     ifstream nlFile(filenameN, ios::in);
+    ifstream vertexFile(filenameT, ios::in);
+    ifstream vertexCrdFile(filenameP, ios::in);
+
     for (int i=0; i<nC; ++i){
         //Extract normal vectors as (x,y,z) and convert to x y z
         getline(vecFile,line);
@@ -106,6 +126,18 @@ VoronoiBinary2D::VoronoiBinary2D(int numA, int numB, int maxS, bool radical, Log
         }
         if(fabs(a0-a1)>tol) logfile.criticalError("Error in conversion to 2D Voronoi");
 
+        //Extract ring perimeters, double check they agree
+        double e,e0,e1;
+        pos = 0;
+        getline(edgeFile,line);
+        istringstream ssp(line);
+        while(ssp >> e){
+            if(pos==facePos2D[0]) e0=e;
+            else if(pos==facePos2D[1]) e1=e;
+            ++pos;
+        }
+        if(fabs(e0-e1)>tol) logfile.criticalError("Error in conversion to 2D Voronoi");
+
         //Extract neighbour list
         VecF<int> nl(k0);
         int id;
@@ -120,15 +152,104 @@ VoronoiBinary2D::VoronoiBinary2D(int numA, int numB, int maxS, bool radical, Log
         }
         if(pos!=k0) logfile.criticalError("Error in conversion to 2D Voronoi");
 
+        //Extract vertex path
+        getline(vertexFile,line);
+        pos = -1;
+        j = 0;
+        string vertexPos;
+        while(j<line.size()){
+            if(line[j] == '(') ++pos;
+            if(pos==facePos2D[0]){
+                k = j+1;
+                vertexPos="";
+                for(;;){
+                    if(line[k] == ')') break;
+                    else if(line[k] != ',') vertexPos+=line[k];
+                    else if(line[k] == ',') vertexPos+=" ";
+                    ++k;
+                }
+                break;
+            }
+            ++j;
+        }
+        istringstream vss(vertexPos);
+        VecF<int> vPath(k0);
+        pos=0;
+        while(vss>>k){
+            vPath[pos]=k;
+            ++pos;
+        }
+        //Extract vertex path coordinates
+        getline(vertexCrdFile,line);
+        j = 0;
+        while(j<line.size()){
+            if(line[j] == '(' || line[j] == ')') line.erase(j,1);
+            else if(line[j] == ','){
+                line.replace(j,1," ");
+                ++j;
+            }
+            else ++j;
+        }
+        VecR< VecF<double> > vertexCrds(k0*2);
+        VecF<double> crd(2);
+        double c;
+        istringstream vCrd(line);
+        xyz=0;
+        pos=0;
+        while(vCrd >> c){
+            if(xyz%3==0) crd[0]=c;
+            else if (xyz%3==1) crd[1]=c;
+            else{
+                vertexCrds[pos]=crd;
+                ++pos;
+            }
+            ++xyz;
+        }
+        //Calculate lengths and angles
+        VecF<double> v0,v1;
+        VecR<double> angles(0,k0);
+        VecR<double> lengths(0,k0);
+        int l;
+        for(int j=0; j<vPath.n; ++j){
+            k=(j+1)%vPath.n;
+            l=(j+2)%vPath.n;
+            v0 = vertexCrds[vPath[j]] - vertexCrds[vPath[k]];
+            v1 = vertexCrds[vPath[l]] - vertexCrds[vPath[k]];
+            double n0,n1;
+            double theta = vAngle(v0,v1,n0,n1);
+            if(theta>-1) {//extremely occasional degenerate nodes where n0 or n1=0
+                angles.addValue(theta);
+                lengths.addValue(n0);
+            }
+        }
+
         //Store depending on type
         id = ids[i];
         if(id<nA){
             sizeA[id] = k0;
             areaA[id] = a0;
+            edgeA[id] = e0/k0;
+            for(int j=0; j<angles.n; ++j){
+                lengthA[0] += lengths[j];
+                lengthA[1] += lengths[j]*lengths[j];
+                ++lengthA[2];
+                angleA[0] += angles[j];
+                angleA[1] += angles[j]*angles[j];
+                ++angleA[2];
+            }
         }
         else{
             sizeB[id-nA] = k0;
             areaB[id-nA] = a0;
+            edgeB[id-nA] = e0/k0;
+            for(int j=0; j<angles.n; ++j){
+                lengthB[0] += lengths[j];
+                lengthB[1] += lengths[j]*lengths[j];
+                ++lengthB[2];
+                angleB[0] += angles[j];
+                angleB[1] += angles[j]*angles[j];
+                ++angleB[2];
+            }
         }
         nbListAB[id] = nl;
     }
@@ -164,29 +285,35 @@ void VoronoiBinary2D::calculateDistributions(Logfile &logfile) {
     sizeDistC = VecF<double>(maxSize+1);
     areaDistA = VecF<double>(maxSize+1);
     areaDistB = VecF<double>(maxSize+1);
+    edgeDistA = VecF<double>(maxSize+1);
+    edgeDistB = VecF<double>(maxSize+1);
     cnxDist = VecF< VecF<double> >(maxSize+1);
     sizeDistA = 0;
     sizeDistB = 0;
     sizeDistC = 0;
     areaDistA = 0;
     areaDistB = 0;
+    edgeDistA = 0;
+    edgeDistB = 0;
     for(int i=0; i<=maxSize; ++i){
         cnxDist[i] = VecF<double>(maxSize+1);
         cnxDist[i] = 0;
     }
 
-    //A size and area
+    //A size, area and edge length
     for(int i=0; i<nA; ++i){
         int size = sizeA[i];
         ++sizeDistA[size];
         areaDistA[size] += areaA[i];
+        edgeDistA[size] += edgeA[i];
     }
 
-    //B size and area
+    //B size, area and edge lengt
     for(int i=0; i<nB; ++i){
         int size = sizeB[i];
         ++sizeDistB[size];
         areaDistB[size] += areaB[i];
+        edgeDistB[size] += edgeB[i];
     }
 
     //Combined size
@@ -228,7 +355,8 @@ void VoronoiBinary2D::calculateDistributions(Logfile &logfile) {
 }
 
 void VoronoiBinary2D::getDistributions(VecF<double> &sA, VecF<double> &sB, VecF<double> &sC, VecF<double> &aA,
-                                       VecF<double> &aB, VecF<VecF<double> > &e) {
+                                       VecF<double> &aB, VecF<double> &eA, VecF<double> &eB, VecF<VecF<double> > &e,
+                                       VecF<double> &lA, VecF<double> &lB, VecF<double> &anA, VecF<double> &anB) {
     //Get unnormalised distributions
 
     sA = sizeDistA;
@@ -236,6 +364,12 @@ void VoronoiBinary2D::getDistributions(VecF<double> &sA, VecF<double> &sB, VecF<
     sC = sizeDistC;
     aA = areaDistA;
     aB = areaDistB;
+    eA = edgeDistA;
+    eB = edgeDistB;
     e = cnxDist;
+    lA = lengthA;
+    lB = lengthB;
+    anA = angleA;
+    anB = angleB;
 }
 

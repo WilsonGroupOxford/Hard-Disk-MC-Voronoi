@@ -172,18 +172,28 @@ void MonteCarlo::preEquilibration(Logfile &logfile) {
     for(;;){
         double p;
         double d=0.5*(dLow+dUp);
+        bool conv = false;
         dispMoveDelta=d;
-        for(;;){
+        for(int i=0; i<100; ++i){
             p=monteCarloCycle()[0];
             ++cycleCount;
-            if(abs(p-0.4)<0.01) break;
+            if(abs(p-0.4)<0.01){
+                conv=true;
+                break;
+            }
             else if(p<0.4) dUp=d;
             else dLow=d;
             d=0.5*(dLow+dUp);
             dispMoveDelta=d;
         }
-        dLow=0.5*d;
-        dUp=1.5*d;
+        if(conv){
+            dLow=0.5*d;
+            dUp=1.5*d;
+        }
+        else{
+            dLow=0.1*d;
+            dUp=10.0*d;
+        }
         if(dUp>cellLen_2) dUp=cellLen_2;
         if(cycleCount>nCyclePreEq*0.9) break; //leave cycles to find minimum again
     }

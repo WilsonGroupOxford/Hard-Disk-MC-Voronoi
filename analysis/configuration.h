@@ -30,12 +30,14 @@ private:
 
     //Voronoi variables
     VecF<double> vorPKA,vorPKB,vorPKC; //ring distribution functions of type a,b,total
-    VecF<double> vorARA,vorARB; //area distirbution for each type,a,b
+    VecF<double> vorARA,vorARB,vorELA,vorELB; //area and edge length distribution for each type,a,b
+    VecF<double> vorLEA,vorLEB,vorANA,vorANB; //length and angle distribution summaries
     VecF< VecF<double> > vorE; //edge distribution in delaunnay
 
     //Radical Vornoi variables
     VecF<double> radPKA,radPKB,radPKC; //ring distribution functions of type a,b,total
-    VecF<double> radARA,radARB; //area distirbution for each type,a,b
+    VecF<double> radARA,radARB,radELA,radELB; //area and edge length distribution for each type,a,b
+    VecF<double> radLEA,radLEB,radANA,radANB; //length and angle distribution summaries
     VecF< VecF<double> > radE; //edge distribution in delaunnay
 
 public:
@@ -50,15 +52,19 @@ public:
     void rdf(Logfile& logfile);
     void rdfFinalise(string prefix, Logfile& logfile);
     void setVoronoi(Logfile& logfile);
-    void voronoi(ofstream &vorFilePKA, ofstream &vorFilePKB, ofstream &vorFilePKC,
-                 ofstream &vorFileARA, ofstream &vorFileARB, ofstream &vorFileNet,Logfile& logfile);
-    void voronoiFinalise(ofstream &vorFilePKA, ofstream &vorFilePKB, ofstream &vorFilePKC,
-                 ofstream &vorFileARA, ofstream &vorFileARB, ofstream &vorFileNet, Logfile& logfile);
+    void voronoi(ofstream &vorFilePKA, ofstream &vorFilePKB, ofstream &vorFilePKC, ofstream &vorFileEJK,
+                 ofstream &vorFileARA, ofstream &vorFileARB, ofstream &vorFileELA, ofstream &vorFileELB,
+                 ofstream &vorFileNet,Logfile& logfile);
+    void voronoiFinalise(ofstream &vorFilePKA, ofstream &vorFilePKB, ofstream &vorFilePKC, ofstream &vorFileEJK,
+                 ofstream &vorFileARA, ofstream &vorFileARB, ofstream &vorFileELA, ofstream &vorFileELB, ofstream &vorFileLAN,
+                 ofstream &vorFileNet, Logfile& logfile);
     void setRadical(Logfile& logfile);
-    void radical(ofstream &radFilePKA, ofstream &radFilePKB, ofstream &radFilePKC,
-                 ofstream &radFileARA, ofstream &radFileARB, ofstream &radFileNet,Logfile& logfile);
-    void radicalFinalise(ofstream &radFilePKA, ofstream &radFilePKB, ofstream &radFilePKC,
-                         ofstream &radFileARA, ofstream &radFileARB, ofstream &radFileNet, Logfile& logfile);
+    void radical(ofstream &radFilePKA, ofstream &radFilePKB, ofstream &radFilePKC, ofstream &radFileEJK,
+                 ofstream &radFileARA, ofstream &radFileARB, ofstream &radFileELA, ofstream &radFileELB,
+                 ofstream &radFileNet,Logfile& logfile);
+    void radicalFinalise(ofstream &radFilePKA, ofstream &radFilePKB, ofstream &radFilePKC, ofstream &radFileEJK,
+                         ofstream &radFileARA, ofstream &radFileARB, ofstream &radFileELA, ofstream &radFileELB, ofstream &radFileLAN,
+                         ofstream &radFileNet, Logfile& logfile);
 
 };
 

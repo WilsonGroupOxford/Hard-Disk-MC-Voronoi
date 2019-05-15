@@ -67,7 +67,7 @@ void Configuration::setRdf(double delta, double extent) {
     rdfMaxSq = rdfExtent*rdfExtent;
 
     //Make histograms
-    int n = int(floor(rdfExtent/rdfDelta));
+    int n = int(floor(rdfExtent/rdfDelta))+1;
     rdfR = VecF<double>(n); //bin central values
     rdfR = rdfDelta/2;
     for(int i=0; i<n; ++i) rdfR[i] += i*rdfDelta;
@@ -190,20 +190,33 @@ void Configuration::setVoronoi(Logfile &logfile) {
     vorPKC = VecF<double>(maxK+1);
     vorARA = VecF<double>(maxK+1);
     vorARB = VecF<double>(maxK+1);
+    vorELA = VecF<double>(maxK+1);
+    vorELB = VecF<double>(maxK+1);
     vorE = VecF< VecF<double> >(maxK+1);
+    vorLEA = VecF<double>(3);
+    vorLEB = VecF<double>(3);
+    vorANA = VecF<double>(3);
+    vorANB = VecF<double>(3);
     vorPKA = 0;
     vorPKB = 0;
     vorPKC = 0;
     vorARA = 0;
     vorARB = 0;
+    vorELA = 0;
+    vorELB = 0;
+    vorLEA = 0;
+    vorLEB = 0;
+    vorANA = 0;
+    vorANB = 0;
     for(int i=0; i<=maxK; ++i){
         vorE[i] = VecF<double>(maxK+1);
         vorE[i] = 0;
     }
 }
 
-void Configuration::voronoi(ofstream &vorFilePKA, ofstream &vorFilePKB, ofstream &vorFilePKC, ofstream &vorFileARA,
-                            ofstream &vorFileARB, ofstream &vorFileNet, Logfile &logfile) {
+void Configuration::voronoi(ofstream &vorFilePKA, ofstream &vorFilePKB, ofstream &vorFilePKC, ofstream &vorFileEJK,
+                            ofstream &vorFileARA, ofstream &vorFileARB, ofstream &vorFileELA, ofstream &vorFileELB,
+                            ofstream &vorFileNet, Logfile &logfile) {
     //Voronoi analysis
 
     //Initialise Voronoi and add configuration coordinates
@@ -215,15 +228,18 @@ void Configuration::voronoi(ofstream &vorFilePKA, ofstream &vorFilePKB, ofstream
     vor3D.print_custom("%i","./vorI.tmp");
     vor3D.print_custom("%a","./vorK.tmp");
     vor3D.print_custom("%f","./vorA.tmp");
+    vor3D.print_custom("%e","./vorE.tmp");
     vor3D.print_custom("%n","./vorN.tmp");
     vor3D.print_custom("%l","./vorV.tmp");
+    vor3D.print_custom("%t","./vorT.tmp");
+    vor3D.print_custom("%p","./vorP.tmp");
 
     //Read into 2D Voronoi and extract unnormalised distributions
     int maxK = 20;
-    VecF<double> pA,pB,pC,aA,aB;
+    VecF<double> pA,pB,pC,aA,aB,eA,eB,lA,lB,anA,anB;
     VecF< VecF<double> > e;
     VoronoiBinary2D vor2D(nA,nB,maxK,false,logfile);
-    vor2D.getDistributions(pA,pB,pC,aA,aB,e);
+    vor2D.getDistributions(pA,pB,pC,aA,aB,eA,eB,e,lA,lB,anA,anB);
 
     //Add to running total distributions
     vorPKA += pA;
@@ -231,14 +247,26 @@ void Configuration::voronoi(ofstream &vorFilePKA, ofstream &vorFilePKB, ofstream
     vorPKC += pC;
     vorARA += aA;
     vorARB += aB;
+    vorELA += eA;
+    vorELB += eB;
+    vorLEA += lA;
+    vorLEB += lB;
+    vorANA += anA;
+    vorANB += anB;
     for(int i=0; i<=maxK; ++i) vorE[i] += e[i];
 
     //Normalise distributions
     VecF<double> k(maxK+1);
     for(int i=0; i<=maxK; ++i) k[i]=i;
     for(int i=0; i<=maxK; ++i){
-        if(pA[i]>0) aA[i] /= pA[i];
-        if(pB[i]>0) aB[i] /= pB[i];
+        if(pA[i]>0){
+            aA[i] /= pA[i];
+            eA[i] /= pA[i];
+        }
+        if(pB[i]>0){
+            aB[i] /= pB[i];
+            eB[i] /= pB[i];
+        }
     }
     if(nA>0) pA /= nA;
     if(nB>0) pB /= nB;
@@ -275,6 +303,14 @@ void Configuration::voronoi(ofstream &vorFilePKA, ofstream &vorFilePKB, ofstream
     double awA = 1.0-aw[0];
     double awVar = aw[1]-36.0;
     double awRSq = aw[2];
+    VecF<double> p6I(maxK+1),meanI(maxK+1),varI(maxK+1);
+    for(int i=0; i<=maxK; ++i){
+        if(pC[i]>0){
+            p6I[i]=e[i][6]/q[i];
+            meanI[i]=vSum(k*e[i]/q[i]);
+            varI[i]=vSum(k*k*e[i]/q[i])-meanI[i]*meanI[i];
+        }
+    }
 
     //Write to files
     for(int i=0; i<=maxK; ++i){
@@ -283,12 +319,20 @@ void Configuration::voronoi(ofstream &vorFilePKA, ofstream &vorFilePKB, ofstream
         vorFilePKC<<setw(20)<<left<<pC[i];
         vorFileARA<<setw(20)<<left<<aA[i];
         vorFileARB<<setw(20)<<left<<aB[i];
+        vorFileELA<<setw(20)<<left<<eA[i];
+        vorFileELB<<setw(20)<<left<<eB[i];
+//        vorFileEJK<<setw(20)<<left<<p6I[i];
+//        vorFileEJK<<setw(20)<<left<<meanI[i];
+//        vorFileEJK<<setw(20)<<left<<varI[i];
+//        vorFileEJK<<endl;
     }
     vorFilePKA<<endl;
     vorFilePKB<<endl;
     vorFilePKC<<endl;
     vorFileARA<<endl;
     vorFileARB<<endl;
+    vorFileELA<<endl;
+    vorFileELB<<endl;
     vorFileNet<<setw(20)<<left<<meanA;
     vorFileNet<<setw(20)<<left<<meanB;
     vorFileNet<<setw(20)<<left<<meanC;
@@ -302,8 +346,10 @@ void Configuration::voronoi(ofstream &vorFilePKA, ofstream &vorFilePKB, ofstream
     vorFileNet<<endl;
 }
 
-void Configuration::voronoiFinalise(ofstream &vorFilePKA, ofstream &vorFilePKB, ofstream &vorFilePKC, ofstream &vorFileARA,
-                            ofstream &vorFileARB, ofstream &vorFileNet, Logfile &logfile) {
+void Configuration::voronoiFinalise(ofstream &vorFilePKA, ofstream &vorFilePKB, ofstream &vorFilePKC,
+                                    ofstream &vorFileEJK, ofstream &vorFileARA, ofstream &vorFileARB,
+                                    ofstream &vorFileELA, ofstream &vorFileELB, ofstream &vorFileLAN,
+                                    ofstream &vorFileNet, Logfile &logfile) {
     //Analyse distributions from all frames
 
     //Normalise distributions
@@ -311,11 +357,33 @@ void Configuration::voronoiFinalise(ofstream &vorFilePKA, ofstream &vorFilePKB, 
     VecF<double> k(maxK+1);
     for(int i=0; i<=maxK; ++i) k[i]=i;
     for(int i=0; i<=maxK; ++i){
-        if(vorPKA[i]>0) vorARA[i] /= vorPKA[i];
-        if(vorPKB[i]>0) vorARB[i] /= vorPKB[i];
+        if(vorPKA[i]>0){
+            vorARA[i] /= vorPKA[i];
+            vorELA[i] /= vorPKA[i];
+        }
+        if(vorPKB[i]>0){
+            vorARB[i] /= vorPKB[i];
+            vorELB[i] /= vorPKB[i];
+        }
     }
-    if(nA>0) vorPKA /= nA*nCrdSets;
-    if(nB>0) vorPKB /= nB*nCrdSets;
+    if(nA>0){
+        vorPKA /= nA*nCrdSets;
+        vorLEA[0] /= vorLEA[2];
+        vorLEA[1] /= vorLEA[2];
+        vorLEA[1] -= vorLEA[0]*vorLEA[0];
+        vorANA[0] /= vorANA[2];
+        vorANA[1] /= vorANA[2];
+        vorANA[1] -= vorANA[0]*vorANA[0];
+    }
+    if(nB>0){
+        vorPKB /= nB*nCrdSets;
+        vorLEB[0] /= vorLEB[2];
+        vorLEB[1] /= vorLEB[2];
+        vorLEB[1] -= vorLEB[0]*vorLEB[0];
+        vorANB[0] /= vorANB[2];
+        vorANB[1] /= vorANB[2];
+        vorANB[1] -= vorANB[0]*vorANB[0];
+    }
     vorPKC /= nC*nCrdSets;
     VecF<double> q(maxK+1);
     for(int i=0; i<=maxK; ++i) q[i] = vSum(vorE[i]);
@@ -323,7 +391,7 @@ void Configuration::voronoiFinalise(ofstream &vorFilePKA, ofstream &vorFilePKB, 
     for(int i=0; i<=maxK; ++i) vorE[i] /= normE;
     q /= normE;
 
-    //Calculate distirbution metrics
+    //Calculate distribution metrics
     double meanA,meanB,meanC,varA,varB,varC;
     meanA = vSum(k*vorPKA);
     meanB = vSum(k*vorPKB);
@@ -349,6 +417,14 @@ void Configuration::voronoiFinalise(ofstream &vorFilePKA, ofstream &vorFilePKB, 
     double awA = 1.0-aw[0];
     double awVar = aw[1]-36.0;
     double awRSq = aw[2];
+    VecF<double> p6I(maxK+1),meanI(maxK+1),varI(maxK+1);
+    for(int i=0; i<=maxK; ++i){
+        if(vorPKC[i]>0){
+            p6I[i]=vorE[i][6]/q[i];
+            meanI[i]=vSum(k*vorE[i]/q[i]);
+            varI[i]=vSum(k*k*vorE[i]/q[i])-meanI[i]*meanI[i];
+        }
+    }
 
     //Write to files
     for(int i=0; i<=maxK; ++i){
@@ -357,12 +433,42 @@ void Configuration::voronoiFinalise(ofstream &vorFilePKA, ofstream &vorFilePKB, 
         vorFilePKC<<setw(20)<<left<<vorPKC[i];
         vorFileARA<<setw(20)<<left<<vorARA[i];
         vorFileARB<<setw(20)<<left<<vorARB[i];
+        vorFileELA<<setw(20)<<left<<vorELA[i];
+        vorFileELB<<setw(20)<<left<<vorELB[i];
+//        vorFileEJK<<setw(20)<<left<<p6I[i];
+//        vorFileEJK<<setw(20)<<left<<meanI[i];
+//        vorFileEJK<<setw(20)<<left<<varI[i];
+//        vorFileEJK<<endl;
     }
+    for(int i=0; i<=maxK; ++i) {
+        for (int j = 0; j <= maxK; ++j) vorFileEJK << setw(20) << left << vorE[i][j];
+        vorFileEJK<<endl;
+    }
+    for(int i=0; i<=maxK; ++i) {
+        for (int j = 0; j <= maxK; ++j) {
+            if (q[i] > 0.0) vorFileEJK << setw(20) << left << vorE[i][j] / q[i];
+            else vorFileEJK << setw(20) << left << 0.0;
+        }
+        vorFileEJK<<endl;
+    }
+    vorFileEJK<<endl;
     vorFilePKA<<endl;
     vorFilePKB<<endl;
     vorFilePKC<<endl;
     vorFileARA<<endl;
     vorFileARB<<endl;
+    vorFileELA<<endl;
+    vorFileELB<<endl;
+    vorFileLAN<<setw(20)<<left<<vorLEA[0];
+    vorFileLAN<<setw(20)<<left<<vorLEA[1]<<endl;
+    vorFileLAN<<setw(20)<<left<<vorLEB[0];
+    vorFileLAN<<setw(20)<<left<<vorLEB[1]<<endl;
+    vorFileLAN<<setw(20)<<left<<vorANA[0];
+    vorFileLAN<<setw(20)<<left<<vorANA[1]<<endl;
+    vorFileLAN<<setw(20)<<left<<vorANB[0];
+    vorFileLAN<<setw(20)<<left<<vorANB[1]<<endl;
+    vorFileLAN<<setw(20)<<left<<cellLen;
+    vorFileLAN<<setw(20)<<left<<cellLen*cellLen/nC<<endl;
     vorFileNet<<setw(20)<<left<<meanA;
     vorFileNet<<setw(20)<<left<<meanB;
     vorFileNet<<setw(20)<<left<<meanC;
@@ -389,20 +495,33 @@ void Configuration::setRadical(Logfile &logfile) {
     radPKC = VecF<double>(maxK+1);
     radARA = VecF<double>(maxK+1);
     radARB = VecF<double>(maxK+1);
+    radELA = VecF<double>(maxK+1);
+    radELB = VecF<double>(maxK+1);
     radE = VecF< VecF<double> >(maxK+1);
+    radLEA = VecF<double>(3);
+    radLEB = VecF<double>(3);
+    radANA = VecF<double>(3);
+    radANB = VecF<double>(3);
     radPKA = 0;
     radPKB = 0;
     radPKC = 0;
     radARA = 0;
     radARB = 0;
+    radELA = 0;
+    radELB = 0;
+    radLEA = 0;
+    radLEB = 0;
+    radANA = 0;
+    radANB = 0;
     for(int i=0; i<=maxK; ++i){
         radE[i] = VecF<double>(maxK+1);
         radE[i] = 0;
     }
 }
 
-void Configuration::radical(ofstream &radFilePKA, ofstream &radFilePKB, ofstream &radFilePKC, ofstream &radFileARA,
-                            ofstream &radFileARB, ofstream &radFileNet, Logfile &logfile) {
+void Configuration::radical(ofstream &radFilePKA, ofstream &radFilePKB, ofstream &radFilePKC, ofstream &radFileEJK,
+                            ofstream &radFileARA, ofstream &radFileARB, ofstream &radFileELA, ofstream &radFileELB,
+                            ofstream &radFileNet, Logfile &logfile) {
     //Radical Voronoi analysis
 
     //Initialise radical Voronoi and add configuration coordinates
@@ -414,15 +533,18 @@ void Configuration::radical(ofstream &radFilePKA, ofstream &radFilePKB, ofstream
     rad3D.print_custom("%i","./radI.tmp");
     rad3D.print_custom("%a","./radK.tmp");
     rad3D.print_custom("%f","./radA.tmp");
+    rad3D.print_custom("%e","./radE.tmp");
     rad3D.print_custom("%n","./radN.tmp");
     rad3D.print_custom("%l","./radV.tmp");
+    rad3D.print_custom("%t","./radT.tmp");
+    rad3D.print_custom("%p","./radP.tmp");
 
     //Read into 2D Voronoi and extract unnormalised distributions
     int maxK = 20;
-    VecF<double> pA,pB,pC,aA,aB;
+    VecF<double> pA,pB,pC,aA,aB,eA,eB,lA,lB,anA,anB;
     VecF< VecF<double> > e;
     VoronoiBinary2D rad2D(nA,nB,maxK,true,logfile);
-    rad2D.getDistributions(pA,pB,pC,aA,aB,e);
+    rad2D.getDistributions(pA,pB,pC,aA,aB,eA,eB,e,lA,lB,anA,anB);
 
     //Add to running total distributions
     radPKA += pA;
@@ -430,14 +552,26 @@ void Configuration::radical(ofstream &radFilePKA, ofstream &radFilePKB, ofstream
     radPKC += pC;
     radARA += aA;
     radARB += aB;
+    radELA += eA;
+    radELB += eB;
+    radLEA += lA;
+    radLEB += lB;
+    radANA += anA;
+    radANB += anB;
     for(int i=0; i<=maxK; ++i) radE[i] += e[i];
 
     //Normalise distributions
     VecF<double> k(maxK+1);
     for(int i=0; i<=maxK; ++i) k[i]=i;
     for(int i=0; i<=maxK; ++i){
-        if(pA[i]>0) aA[i] /= pA[i];
-        if(pB[i]>0) aB[i] /= pB[i];
+        if(pA[i]>0){
+            aA[i] /= pA[i];
+            eA[i] /= pA[i];
+        }
+        if(pB[i]>0){
+            aB[i] /= pB[i];
+            eB[i] /= pB[i];
+        }
     }
     if(nA>0) pA /= nA;
     if(nB>0) pB /= nB;
@@ -482,12 +616,16 @@ void Configuration::radical(ofstream &radFilePKA, ofstream &radFilePKB, ofstream
         radFilePKC<<setw(20)<<left<<pC[i];
         radFileARA<<setw(20)<<left<<aA[i];
         radFileARB<<setw(20)<<left<<aB[i];
+        radFileELA<<setw(20)<<left<<eA[i];
+        radFileELB<<setw(20)<<left<<eB[i];
     }
     radFilePKA<<endl;
     radFilePKB<<endl;
     radFilePKC<<endl;
     radFileARA<<endl;
     radFileARB<<endl;
+    radFileELA<<endl;
+    radFileELB<<endl;
     radFileNet<<setw(20)<<left<<meanA;
     radFileNet<<setw(20)<<left<<meanB;
     radFileNet<<setw(20)<<left<<meanC;
@@ -502,8 +640,9 @@ void Configuration::radical(ofstream &radFilePKA, ofstream &radFilePKB, ofstream
 }
 
 void Configuration::radicalFinalise(ofstream &radFilePKA, ofstream &radFilePKB, ofstream &radFilePKC,
-                                    ofstream &radFileARA, ofstream &radFileARB, ofstream &radFileNet,
-                                    Logfile &logfile) {
+                                    ofstream &radFileEJK, ofstream &radFileARA, ofstream &radFileARB,
+                                    ofstream &radFileELA, ofstream &radFileELB, ofstream &radFileLAN,
+                                    ofstream &radFileNet, Logfile &logfile) {
     //Analyse distributions from all frames
 
     //Normalise distributions
@@ -511,11 +650,33 @@ void Configuration::radicalFinalise(ofstream &radFilePKA, ofstream &radFilePKB, 
     VecF<double> k(maxK+1);
     for(int i=0; i<=maxK; ++i) k[i]=i;
     for(int i=0; i<=maxK; ++i){
-        if(radPKA[i]>0) radARA[i] /= radPKA[i];
-        if(radPKB[i]>0) radARB[i] /= radPKB[i];
+        if(radPKA[i]>0){
+            radARA[i] /= radPKA[i];
+            radELA[i] /= radPKA[i];
+        }
+        if(radPKB[i]>0){
+            radARB[i] /= radPKB[i];
+            radELB[i] /= radPKB[i];
+        }
     }
-    if(nA>0) radPKA /= nA*nCrdSets;
-    if(nB>0) radPKB /= nB*nCrdSets;
+    if(nA>0){
+        radPKA /= nA*nCrdSets;
+        radLEA[0] /= radLEA[2];
+        radLEA[1] /= radLEA[2];
+        radLEA[1] -= radLEA[0]*radLEA[0];
+        radANA[0] /= radANA[2];
+        radANA[1] /= radANA[2];
+        radANA[1] -= radANA[0]*radANA[0];
+    }
+    if(nB>0){
+        radPKB /= nB*nCrdSets;
+        radLEB[0] /= radLEB[2];
+        radLEB[1] /= radLEB[2];
+        radLEB[1] -= radLEB[0]*radLEB[0];
+        radANB[0] /= radANB[2];
+        radANB[1] /= radANB[2];
+        radANB[1] -= radANB[0]*radANB[0];
+    }
     radPKC /= nC*nCrdSets;
     VecF<double> q(maxK+1);
     for(int i=0; i<=maxK; ++i) q[i] = vSum(radE[i]);
@@ -557,12 +718,38 @@ void Configuration::radicalFinalise(ofstream &radFilePKA, ofstream &radFilePKB, 
         radFilePKC<<setw(20)<<left<<radPKC[i];
         radFileARA<<setw(20)<<left<<radARA[i];
         radFileARB<<setw(20)<<left<<radARB[i];
+        radFileELA<<setw(20)<<left<<radELA[i];
+        radFileELB<<setw(20)<<left<<radELB[i];
     }
+    for(int i=0; i<=maxK; ++i) {
+        for (int j = 0; j <= maxK; ++j) radFileEJK << setw(20) << left << radE[i][j];
+        radFileEJK<<endl;
+    }
+    for(int i=0; i<=maxK; ++i) {
+        for (int j = 0; j <= maxK; ++j) {
+            if (q[i] > 0.0) radFileEJK << setw(20) << left << radE[i][j] / q[i];
+            else radFileEJK << setw(20) << left << 0.0;
+        }
+        radFileEJK<<endl;
+    }
+    radFileEJK<<endl;
     radFilePKA<<endl;
     radFilePKB<<endl;
     radFilePKC<<endl;
     radFileARA<<endl;
     radFileARB<<endl;
+    radFileELA<<endl;
+    radFileELB<<endl;
+    radFileLAN<<setw(20)<<left<<radLEA[0];
+    radFileLAN<<setw(20)<<left<<radLEA[1]<<endl;
+    radFileLAN<<setw(20)<<left<<radLEB[0];
+    radFileLAN<<setw(20)<<left<<radLEB[1]<<endl;
+    radFileLAN<<setw(20)<<left<<radANA[0];
+    radFileLAN<<setw(20)<<left<<radANA[1]<<endl;
+    radFileLAN<<setw(20)<<left<<radANB[0];
+    radFileLAN<<setw(20)<<left<<radANB[1]<<endl;
+    radFileLAN<<setw(20)<<left<<cellLen;
+    radFileLAN<<setw(20)<<left<<cellLen*cellLen/nC<<endl;
     radFileNet<<setw(20)<<left<<meanA;
     radFileNet<<setw(20)<<left<<meanB;
     radFileNet<<setw(20)<<left<<meanC;

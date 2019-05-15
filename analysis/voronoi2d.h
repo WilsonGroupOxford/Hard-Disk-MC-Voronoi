@@ -24,12 +24,13 @@ private:
     int nA,nB,nC; //number of type a,b and total particles
     int maxSize; //maximum ring sizes to include
     VecF<int> sizeA, sizeB; //sizes of type a and b
-    VecF<double> areaA, areaB; //areas of rings of each type
+    VecF<double> areaA, areaB, edgeA, edgeB; //areas and edge lengths of rings of each type
+    VecF<double> lengthA, lengthB, angleA, angleB; //lengths and angles of type a and b
     VecF< VecF<int> > nbListAB; //neighbour list for both type a and b
 
     //Analysis variables
     VecF<double> sizeDistA, sizeDistB, sizeDistC; //unnormalised ring size distributions
-    VecF<double> areaDistA, areaDistB; //unnormalised ring area distributions
+    VecF<double> areaDistA, areaDistB, edgeDistA, edgeDistB; //unnormalised ring area and edge length distributions
     VecF< VecF<double> > cnxDist; //unnormalised distribution of edges in delaunnay
 
     //Member functions
@@ -43,7 +44,8 @@ public:
 
     //Getters
     void getDistributions(VecF<double> &sA, VecF<double> &sB, VecF<double> &sC,
-            VecF<double> &aA, VecF<double> &aB, VecF< VecF<double> > &e);
+            VecF<double> &aA, VecF<double> &aB, VecF<double> &eA, VecF<double> &eB, VecF< VecF<double> > &e,
+            VecF<double> &lA, VecF<double> &lB, VecF<double> &anA, VecF<double> &anB);
 };
 
 
