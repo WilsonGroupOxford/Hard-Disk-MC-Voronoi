@@ -1,0 +1,13 @@
+I/0
+../test_simulations/test      input file prefix
+---------------------------------------------------
+Sample
+1000           frame number
+---------------------------------------------------
+Display
+0           display type (0=Vor,1=Pow,2=Superimposed)
+1           particle positions
+1           polygons
+0           ring size labels
+1           ring colouring
+---------------------------------------------------
