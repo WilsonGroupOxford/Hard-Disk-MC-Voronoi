@@ -111,12 +111,11 @@ class Initialiser:
         self.log('Constructing lattice')
 
         # Calculate occupancy of each block from size ratio
-        if self.r_b-int(self.r_b)<1e-6:
-            multiplier=1.0
-        else:
-            multiplier = np.round(1.0/(self.r_b-int(self.r_b)))
-        block_a_dim = int(self.r_b*multiplier)
-        block_b_dim = int(self.r_a*multiplier)
+        block_a_dim = int(np.round(self.r_b/0.5))
+        block_b_dim = int(np.round(self.r_a/0.5))
+        while block_a_dim%2==0 and block_b_dim%2==0:
+            block_a_dim//=2
+            block_b_dim//=2
         block_a_capacity = block_a_dim**2
         block_b_capacity = block_b_dim**2
         num_block_a = self.n_a//block_a_capacity
@@ -130,7 +129,11 @@ class Initialiser:
         num_void_blocks = total_blocks-num_block_a-num_block_b-num_part_block_a-num_part_block_b
         check_na = num_block_a*block_a_capacity+num_part_block_a*excess_a!=self.n_a
         check_nb = num_block_b*block_b_capacity+num_part_block_b*excess_b!=self.n_b
-        area_needed = total_blocks*(2.0*self.r_a*block_a_dim)**2
+        if self.r_b*block_b_dim>self.r_a*block_a_dim:
+            block_length = 2.0*self.r_b*block_b_dim
+        else:
+            block_length = 2.0*self.r_a*block_a_dim
+        area_needed = total_blocks*(block_length)**2
         # Check no errors in procedure and number of particles add up
         if check_na or check_nb:
             self.log.error('Algorithmic failure 1 - cannot construct initial lattice at this composition and packing fraction')
@@ -161,7 +164,7 @@ class Initialiser:
                 block_b_crds[k,0] = j*2*self.r_b+self.r_b
                 block_b_crds[k,1] = i*2*self.r_b+self.r_b
                 k += 1
-        block_stretch = block_dim / (2*block_b_dim*self.r_b)
+        block_stretch = block_dim / block_length
         block_a_crds *= block_stretch
         block_b_crds *= block_stretch
         self.crds_a = np.zeros((self.n_a,2))
@@ -211,50 +214,6 @@ class Initialiser:
             else:
                 pass
 
-        # # Fully ordered arrangement
-        # # A blocks
-        # block = 0
-        # count_a = 0
-        # for i in range(num_block_a):
-        #     x = block%x_blocks
-        #     y = block//y_blocks
-        #     block_crd = np.array([x*block_dim,y*block_dim])
-        #     block_crds = block_a_crds + block_crd
-        #     for crd in block_crds:
-        #         self.crds_a[count_a,:] = crd
-        #         count_a += 1
-        #     block += 1
-        # # A partial blocks
-        # for i in range(num_part_block_a):
-        #     x = block%x_blocks
-        #     y = block//y_blocks
-        #     block_crd = np.array([x*block_dim,y*block_dim])
-        #     block_crds = block_a_crds + block_crd
-        #     for crd in block_crds[:excess_a,:]:
-        #         self.crds_a[count_a,:] = crd
-        #         count_a += 1
-        #     block += 1
-        # # B blocks
-        # count_b = 0
-        # for i in range(num_block_b):
-        #     x = block%x_blocks
-        #     y = block//y_blocks
-        #     block_crd = np.array([x*block_dim,y*block_dim])
-        #     block_crds = block_b_crds + block_crd
-        #     for crd in block_crds:
-        #         self.crds_b[count_b,:] = crd
-        #         count_b += 1
-        #     block += 1
-        # # B remainder blocks
-        # for i in range(num_part_block_b):
-        #     x = block%x_blocks
-        #     y = block//y_blocks
-        #     block_crd = np.array([x*block_dim,y*block_dim])
-        #     block_crds = block_b_crds + block_crd
-        #     for crd in block_crds[:excess_b,:]:
-        #         self.crds_b[count_b,:] = crd
-        #         count_b += 1
-        #     block += 1
         # Recentre on origin
         self.crds_a -= self.min_image_distance
         self.crds_b -= self.min_image_distance
