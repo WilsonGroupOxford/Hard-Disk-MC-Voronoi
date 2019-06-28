@@ -52,7 +52,7 @@ class Initialiser:
             self.non_additive = int(f.readline().split()[0]) # Enable non-additivity
             self.n = int(f.readline().split()[0]) # Total number of particles
             self.radius_ratio = float(f.readline().split()[0]) # Sigma ratio b/a
-            self.q = float(f.readline().split()[0]) # Composition
+            self.c_b = float(f.readline().split()[0]) # Number concentration of large particles
             self.phi = float(f.readline().split()[0]) # Total packing fraction
             f.readline()
             f.readline()
@@ -74,7 +74,7 @@ class Initialiser:
         self.log('Non-additive: {}'.format(self.non_additive),indent=2)
         self.log('Total particles: {}'.format(self.n),indent=2)
         self.log('Size ratio: {}'.format(self.radius_ratio),indent=2)
-        self.log('Composition: {}'.format(self.q),indent=2)
+        self.log('Number concentration of large particles: {}'.format(self.c_b),indent=2)
         self.log('Total packing fraction: {}'.format(self.phi),indent=2)
 
 
@@ -83,8 +83,7 @@ class Initialiser:
 
         # Calculatee additional parameters
         self.log.write('Calculating system parameters')
-        p_b = self.q/(self.radius_ratio**2-self.q*self.radius_ratio**2+self.q)
-        self.n_b = int(np.round(p_b*self.n)) # Number of type b particles
+        self.n_b = int(np.round(self.c_b*self.n)) # Number of type b particles
         self.n_a = self.n - self.n_b # Number of type a particles
         self.r_a = 1.0 # Radius of a
         self.r_b = self.radius_ratio*self.r_a # Radius of b
@@ -100,7 +99,7 @@ class Initialiser:
         self.min_image_distance = self.cell_length/2.0 # Minimum image distance
         self.phi_a = (self.n_a*np.pi*self.r_a**2)/self.cell_area # Partial packing fraction of type a
         self.phi_b = (self.n_b*np.pi*self.r_b**2)/self.cell_area # Partial packing fraction of type b
-        self.q = self.phi_b / self.phi # Actual composition - may differ from input as limited on number of particles
+        self.q = self.phi_b / self.phi # Composition
         self.log('Number of particles (A,B,Total): {} {} {}'.format(self.n_a,self.n_b,self.n),indent=1)
         self.log('Radii of particles (A,B,AB): {} {} {:6.4f}'.format(self.r_a,self.r_b,self.r_ab),indent=1)
         self.log('Packing fractions (A,B,Total): {:6.4f} {:6.4f} {:6.4f}'.format(self.phi_a,self.phi_b,self.phi),indent=1)
