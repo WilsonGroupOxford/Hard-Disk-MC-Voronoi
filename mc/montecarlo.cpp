@@ -3,7 +3,7 @@
 //Default Constructor
 MonteCarlo::MonteCarlo() {}
 
-MonteCarlo::MonteCarlo(int numA, int numB, double radA, double radB, double cellLength, Logfile& logfile) {
+MonteCarlo::MonteCarlo(int numA, int numB, double radA, double radB, double cellLength, int nonAdditive, Logfile& logfile) {
     //Construct with particle type information
 
     //Assign parameters
@@ -14,9 +14,10 @@ MonteCarlo::MonteCarlo(int numA, int numB, double radA, double radB, double cell
     cellLen = cellLength;
 
     //Calculate additional parameters
-    rAB = sqrt(rA*rB);
+    if(nonAdditive==1) rAB = sqrt(rA*rB);
+    else rAB=0.5*(rA+rB);
     hdAA = pow(2.0*rA,2);
-    hdBB = pow(2.0*rA,2);
+    hdBB = pow(2.0*rB,2);
     hdAB = pow(2.0*rAB,2);
     rCellLen = 1.0/cellLen;
     cellLen_2 = cellLen/2.0;

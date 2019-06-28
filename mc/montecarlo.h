@@ -48,7 +48,7 @@ public:
 
     //Constructors
     MonteCarlo();
-    MonteCarlo(int numA, int numB, double radA, double radB, double cellLength, Logfile& logfile);
+    MonteCarlo(int numA, int numB, double radA, double radB, double cellLength, int nonAdditive, Logfile& logfile);
 
     //Member functions
     void loadCoordinates(string prefix, Logfile& logfile); //load coordinates from xyz file

@@ -46,11 +46,14 @@ int main(int argc, char **argv) {
     logfile.write("Reading auxilary parameters");
     ifstream inputAuxFile(string(argv[1])+".aux", ios::in);
     if(!inputAuxFile.good()) logfile.criticalError("Cannot find auxilary file");
+    int nonAdditive; //non-additivity enabled
     int nA,nB; //number of type a and b
     double rA,rB; //radius of type a and b
     double cellLength; //periodic cell length
     int nCyclePreEq, nCycleEq, nCycleProd; //number of pre-equilibrium, equilibrium and production cycles
     int cycleWriteFreq; //write frequency of sample
+    getline(inputAuxFile,line);
+    istringstream(line)>>nonAdditive;
     getline(inputAuxFile,line);
     istringstream(line)>>nA;
     getline(inputAuxFile,line);

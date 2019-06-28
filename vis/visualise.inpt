@@ -1,5 +1,5 @@
 I/0
-../test_simulations/test      input file prefix
+../test_simulations/test    Q370_P300/q370_p300      input file prefix
 ---------------------------------------------------
 Sample
 1000           frame number
@@ -9,5 +9,5 @@ Display
 1           particle positions
 1           polygons
 0           ring size labels
-1           ring colouring
+0           ring colouring
 ---------------------------------------------------

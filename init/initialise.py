@@ -49,6 +49,7 @@ class Initialiser:
             self.output_prefix = f.readline().split()[0]
             f.readline()
             f.readline()
+            self.non_additive = int(f.readline().split()[0]) # Enable non-additivity
             self.n = int(f.readline().split()[0]) # Total number of particles
             self.radius_ratio = float(f.readline().split()[0]) # Sigma ratio b/a
             self.q = float(f.readline().split()[0]) # Composition
@@ -70,6 +71,7 @@ class Initialiser:
         self.log('Displacement moves per cycle: {}'.format(self.move_disp),indent=2)
         self.log('Cluster moves per cycle: {}'.format(self.move_clst),indent=2)
         self.log('System input settings',indent=1)
+        self.log('Non-additive: {}'.format(self.non_additive),indent=2)
         self.log('Total particles: {}'.format(self.n),indent=2)
         self.log('Size ratio: {}'.format(self.radius_ratio),indent=2)
         self.log('Composition: {}'.format(self.q),indent=2)
@@ -86,7 +88,10 @@ class Initialiser:
         self.n_a = self.n - self.n_b # Number of type a particles
         self.r_a = 1.0 # Radius of a
         self.r_b = self.radius_ratio*self.r_a # Radius of b
-        self.r_ab = np.sqrt(self.r_a*self.r_b) # Non-additive radius
+        if self.non_additive:
+            self.r_ab = np.sqrt(self.r_a*self.r_b) # geometric mean
+        else:
+            self.r_ab = 0.5*(self.r_a+self.r_b) # arithmetic mean
         self.hd_aa = (2.0*self.r_a)**2 # Hard disc a-a squared interaction distance
         self.hd_ab = (2.0*self.r_ab)**2 # Hard disc a-b squared interaction distance
         self.hd_bb = (2.0*self.r_b)**2 # Hard disc b-b squared interaction distance
@@ -323,6 +328,7 @@ class Initialiser:
         """Write parameters for Monte Carlo process and analysis"""
 
         with open('{}.aux'.format(self.output_prefix),'w') as f:
+            f.write('{}  \n'.format(self.non_additive))
             f.write('{}  \n'.format(self.n_a))
             f.write('{}  \n'.format(self.n_b))
             f.write('{}  \n'.format(self.r_a))

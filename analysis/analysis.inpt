@@ -1,10 +1,10 @@
 Processing
-42              number of frames
+10              number of frames
 ---------------------------------------------------
 Analysis types
-0       RDF
+1       RDF
 1       Voronoi
-0       Radical
+1       Radical
 ---------------------------------------------------
 RDF Analysis
 0.005               bin size

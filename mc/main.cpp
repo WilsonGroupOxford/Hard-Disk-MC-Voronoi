@@ -19,6 +19,7 @@ int main(int argc, char **argv) {
     ifstream inputAuxFile(string(argv[1])+".aux", ios::in);
     if(!inputAuxFile.good()) logfile.criticalError("Cannot find auxilary file");
     string skip,line;
+    int nonAdditive; //enable non-additivity
     int nA,nB; //number of type a and b
     double rA,rB; //radius of type a and b
     double cellLength; //periodic cell length
@@ -26,6 +27,8 @@ int main(int argc, char **argv) {
     int cycleWriteFreq; //write frequency of sample
     int cycleDispMoves,cycleClstMoves; //number of displacement and cluster moves per cycle
     int randomSeed; //for random number generator
+    getline(inputAuxFile,line);
+    istringstream(line)>>nonAdditive;
     getline(inputAuxFile,line);
     istringstream(line)>>nA;
     getline(inputAuxFile,line);
@@ -54,7 +57,7 @@ int main(int argc, char **argv) {
     istringstream(line)>>randomSeed;
 
     //Initialise Monte Carlo Simulation
-    MonteCarlo simulation(nA,nB,rA,rB,cellLength,logfile);
+    MonteCarlo simulation(nA,nB,rA,rB,cellLength,nonAdditive,logfile);
     simulation.loadCoordinates(string(argv[1]),logfile);
     simulation.setParameters(randomSeed,nCyclePreEq,nCycleEq,nCycleProd,cycleWriteFreq,cycleDispMoves,cycleClstMoves,logfile);
     simulation.checkAllOverlaps(logfile);

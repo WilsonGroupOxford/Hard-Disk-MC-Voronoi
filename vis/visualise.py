@@ -192,7 +192,7 @@ class Visualisation:
         self.ax.set_axis_off()
         
         # Show figure
-        plt.savefig('vis.png',dpi_quality=400)
+        plt.savefig('vis.png',dpi=400)
         plt.show()
 
 
