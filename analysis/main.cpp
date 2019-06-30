@@ -114,7 +114,7 @@ int main(int argc, char **argv) {
     ofstream radFileELB(prefix+"_rad_elb.dat", ios::in | ios::trunc);
     ofstream radFileLAN(prefix+"_rad_lan.dat", ios::in | ios::trunc);
     ofstream radFileNet(prefix+"_rad_net.dat", ios::in | ios::trunc);
-    Configuration config(nA,nB,rA,rB,cellLength); //set up configuration
+    Configuration config(nA,nB,rA,rB,cellLength,nonAdditive); //set up configuration
     if(rdfAnalysis) config.setRdf(rdfDelta,rdfExtent);
     if(vorAnalysis){
         vorFilePKA << fixed << showpoint << setprecision(8);

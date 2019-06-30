@@ -44,7 +44,7 @@ public:
 
     //Constructors
     Configuration();
-    Configuration(int numA, int numB, double radiusA, double radiusB, double cellLength);
+    Configuration(int numA, int numB, double radiusA, double radiusB, double cellLength, int nonAdditive);
 
     //Member functions
     void setCoordinates(ifstream& xyzFile, Logfile& logfile);

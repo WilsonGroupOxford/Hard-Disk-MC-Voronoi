@@ -2,7 +2,7 @@
 
 Configuration::Configuration() {}
 
-Configuration::Configuration(int numA, int numB, double radiusA, double radiusB, double cellLength) {
+Configuration::Configuration(int numA, int numB, double radiusA, double radiusB, double cellLength, int nonAdditive) {
     //Construct with configuration information
 
     //Assign
@@ -17,8 +17,15 @@ Configuration::Configuration(int numA, int numB, double radiusA, double radiusB,
     nC = nA+nB;
     rCellLen = 1.0/cellLen;
     cellLen_2 = cellLen/2;
-    wA = 2*rA*sqrt(rA*rB)/(rA+rB);
-    wB = 2*sqrt(rA*rB)*(1-rA/(rA+rB));
+    if(nonAdditive==1) {
+        wA = 2 * rA * sqrt(rA * rB) / (rA + rB);
+        wB = 2 * sqrt(rA * rB) * (1 - rA / (rA + rB));
+    }
+    else{
+        wA = rA;
+        wB = rB;
+    }
+    
     xA = VecF<double>(nA);
     yA = VecF<double>(nA);
     xB = VecF<double>(nB);
