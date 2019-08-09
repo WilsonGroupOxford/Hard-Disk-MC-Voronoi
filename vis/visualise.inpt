@@ -2,11 +2,12 @@ I/0
 ../test_simulations/test    Q370_P300/q370_p300      input file prefix
 ---------------------------------------------------
 Sample
-1000           frame number
+10           frame number
 ---------------------------------------------------
 Display
-0           display type (0=Vor,1=Pow,2=Superimposed)
+1           display type (0=Vor,1=Pow,2=Superimposed)
 1           particle positions
+0           delaunay
 1           polygons
 0           ring size labels
 0           ring colouring

@@ -25,7 +25,7 @@ Configuration::Configuration(int numA, int numB, double radiusA, double radiusB,
         wA = rA;
         wB = rB;
     }
-    
+
     xA = VecF<double>(nA);
     yA = VecF<double>(nA);
     xB = VecF<double>(nB);

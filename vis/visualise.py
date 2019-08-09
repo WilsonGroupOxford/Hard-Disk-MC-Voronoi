@@ -42,6 +42,7 @@ class Visualisation:
             f.readline()
             self.vis_type = int(f.readline().split()[0])
             self.vis_particles = int(f.readline().split()[0])
+            self.vis_delaunay = int(f.readline().split()[0])
             self.vis_polygons = int(f.readline().split()[0])
             self.vis_sizelabel = int(f.readline().split()[0])
             self.vis_polycolour = int(f.readline().split()[0])
@@ -61,6 +62,7 @@ class Visualisation:
         # Read aux file and get simulation parameters
         print('Reading simulation auxilary file')
         with open('{}.aux'.format(self.prefix),'r') as f:
+            self.additive = int(f.readline().split()[0])
             self.n_a = int(f.readline().split()[0])
             self.n_b = int(f.readline().split()[0])
             self.r_a = float(f.readline().split()[0])
@@ -135,6 +137,23 @@ class Visualisation:
                     patches_b.append(Circle(c, radius=r_b))
             self.ax.add_collection(PatchCollection(patches_a, facecolor='blue', alpha=0.5))
             self.ax.add_collection(PatchCollection(patches_b, facecolor='red', alpha=0.5))
+        
+        # Add delaunay if selected
+        if self.vis_delaunay:
+            if self.voronoi is not None and self.power is None:
+                self.ax.scatter(self.voronoi.crds[:,0],self.voronoi.crds[:,1],marker='o',s=20,color='k',zorder=2)
+                for i,nl in enumerate(self.voronoi.neighbour_list):
+                    for j in nl:
+                        d = np.sqrt((self.voronoi.crds[i,0]-self.voronoi.crds[j,0])**2+(self.voronoi.crds[i,1]-self.voronoi.crds[j,1])**2)
+                        if i<j and d<self.cell_length*0.5:
+                            self.ax.plot([self.voronoi.crds[i,0],self.voronoi.crds[j,0]],[self.voronoi.crds[i,1],self.voronoi.crds[j,1]],lw=1,ls='--',color='k',zorder=2)    
+            if self.power is not None:
+                self.ax.scatter(self.power.crds[:,0],self.power.crds[:,1],marker='o',s=20,color='k',zorder=2)
+                for i,nl in enumerate(self.power.neighbour_list):
+                    for j in nl:
+                        d = np.sqrt((self.power.crds[i,0]-self.power.crds[j,0])**2+(self.power.crds[i,1]-self.power.crds[j,1])**2)
+                        if i<j and d<self.cell_length*0.5:
+                            self.ax.plot([self.power.crds[i,0],self.power.crds[j,0]],[self.power.crds[i,1],self.power.crds[j,1]],lw=1,ls='--',color='k',zorder=2)
 
         # Add polygons if selected
         if self.vis_polygons:
@@ -149,8 +168,7 @@ class Visualisation:
             if self.power is not None:
                 polygon_colours = self.generate_polygon_colours(self.power.power_polygons)
                 patches_p = []
-                for i in range(self.n):
-                    p = self.power.power_polygons[i]
+                for p in self.power.power_polygons:
                     if p.size > 0:
                         patches_p.append(Polygon(self.power.power_crds[p], True))
                 self.ax.add_collection(PatchCollection(patches_p, facecolor=polygon_colours, edgecolor='k'))
@@ -184,6 +202,26 @@ class Visualisation:
                     elif label>0:
                         self.ax.text(label_x,label_y,'+{}'.format(label),size=5,ha='center',va='center')
 
+        #### Testing Section ####
+        # self.convert_to_polydisperse()
+        # self.polydisperse_power = Periodic_Binary_Power(self.crds_p,np.zeros((0,2)),self.r_p,0.0,self.cell_length)
+        # self.polydisperse_power.delaunay()
+        # self.polydisperse_power.power()
+        # patches_p = []
+        # for i,c in enumerate(self.crds_p):
+        #     patches_p.append(Circle(c, radius=self.r_p[i]))
+        # self.ax.add_collection(PatchCollection(patches_p, facecolor='blue', alpha=0.5))
+        # polygon_colours = self.generate_polygon_colours(self.polydisperse_power.power_polygons)
+        # patches_p = []
+        # for p in self.polydisperse_power.power_polygons:
+        #     if p.size > 0:
+        #         patches_p.append(Polygon(self.polydisperse_power.power_crds[p], True))
+        # self.ax.add_collection(PatchCollection(patches_p, facecolor=polygon_colours, edgecolor='k'))
+        # self.convert_to_monodisperse()
+        self.power.reverse()
+        ####
+
+
         # Set axes
         buffer = 0.6
         lim = buffer*self.cell_length
@@ -194,6 +232,58 @@ class Visualisation:
         # Show figure
         plt.savefig('vis.png',dpi=400)
         plt.show()
+
+
+    def convert_to_monodisperse(self):
+
+        pass
+
+
+
+
+    def convert_to_polydisperse(self):
+
+        self.r_p = np.zeros(self.n)
+        self.crds_p = np.zeros((self.n,2))
+        for i in range(self.n):
+            self.crds_p[i,:] = self.power.crds[i,:]
+            poly_crds = self.power.power_crds[self.power.power_polygons[i]]
+            dist = 0.0
+            v = np.zeros(2)
+            while True:
+                d,v,e = self.min_dist_to_edge(self.crds_p[i]+0.01*v,poly_crds)
+                if d<dist:
+                    break
+                else:
+                    self.crds_p[i] += 0.01*v
+                    self.r_p[i] = d
+                    dist = d
+
+
+    def min_dist_to_edge(self,p,poly):
+
+        n = int(poly.size/2)
+        a = np.zeros((n,2))
+        u = np.zeros((n,2))
+        v = np.zeros((n,2))
+        d = np.inf
+        e = -1
+
+        a[:,:] = poly[:,:]
+        u = np.array([(poly[(i+1)%n]-poly[i]) for i in range(n)])
+        for i in range(n):
+            aa = a[i]
+            uu = u[i]/np.sqrt(np.sum(u[i]**2))
+            ap = p-aa
+            vv = ap - np.sum(ap*uu)*uu
+            dd = np.sqrt(np.sum(vv*vv))
+            if dd<d:
+                d = dd
+                v = vv
+                e = i
+
+        return d,v/np.sqrt(np.sum(v**2)),e
+
 
 
     def generate_polygon_colours(self,polygons):
