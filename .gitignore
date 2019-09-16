@@ -14,3 +14,5 @@ python_archive/
 analysis/cmake*/
 test_simulations/
 voro++/
+ph/
+dev/

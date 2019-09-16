@@ -1,0 +1,12 @@
+Hard Disc Monte Carlo (HDMC)
+---------------------------------------
+Particle Parameters
+100     number of particles
+mono    particle dispersity (mono,bi,poly)
+1.0     dispersity parameters (radius; ...)
+add     particle interactions (add,nonadd)
+0.5     total packing fraction
+---------------------------------------
+Simulation Parameters
+0       random seed
+---------------------------------------
