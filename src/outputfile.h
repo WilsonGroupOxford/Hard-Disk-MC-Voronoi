@@ -104,7 +104,7 @@ public:
     //Member functions
     void criticalError(string message){
         file<<"Critical error: "<<message<<endl;
-        throw message;
+        throw runtime_error(message);
     }
 
     double timeElapsed(){
