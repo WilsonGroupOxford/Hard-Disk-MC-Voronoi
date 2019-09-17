@@ -3,6 +3,9 @@
 //-------- HARD DISK MONTE CARLO CLASS --------
 
 
+//-------- CONSTRUCTORS, SETTERS --------
+
+
 HDMC::HDMC() {
     //Default constructor
 
@@ -11,11 +14,12 @@ HDMC::HDMC() {
 }
 
 
-int HDMC::setParticles(int num, double packFrac, int disp, VecF<double> dispParams) {
+int HDMC::setParticles(int num, double packFrac, int disp, VecF<double> dispParams, int interact) {
     //Set particle parameters
 
     //Set parameters
     n=num;
+    interaction=interact;
     phi=packFrac;
 
     //Allocate vectors
@@ -26,6 +30,12 @@ int HDMC::setParticles(int num, double packFrac, int disp, VecF<double> dispPara
     //Initialise particle lattice
     int lattice;
     if(disp==1) lattice=initMono(dispParams);
+    if(lattice==0){//apply periodic boundary condition
+        for(int i=0; i<n; ++i){
+            x[i]-=cellLen*nearbyint(x[i]*rCellLen);
+            y[i]-=cellLen*nearbyint(y[i]*rCellLen);
+        }
+    }
 
     return lattice;
 }
@@ -46,9 +56,9 @@ int HDMC::initMono(VecF<double> dispParams) {
     if(rows*dispParams[0]*2>cellLen) return 1; //packing fraction too high to form lattice
     double spacing=cellLen/rows;
     for(int i=0; i<rows; ++i){
-        y[i]=i*spacing;
         for(int j=0;j<rows; ++j){
-            x[i]=j*spacing;
+            x[i*rows+j]=j*spacing;
+            y[i*rows+j]=i*spacing;
         }
     }
 
@@ -61,20 +71,295 @@ int HDMC::setRandom(int seed) {
 
     mtGen.seed(seed);
     randParticle=uniform_int_distribution<int>(0,n-1);
+    rand01=uniform_real_distribution<double>(0,1);
 
     return 0;
 }
 
 
-int HDMC::setSimulation(int preEq, int eq, int prod, double swap, double accTarg) {
+int HDMC::setSimulation(int eq, int prod, double swap, double accTarg) {
     //Set simulation parameters
 
-    peqMoves=preEq;
-    eqMoves=eq;
-    prodMoves=prod;
+    eqCycles=eq;
+    prodCycles=prod;
     swapProb=swap;
     transProb=1.0-swapProb;
     acceptTarget=accTarg;
+    transDelta=1.0;
 
     return 0;
+}
+
+
+//-------- MONTE CARLO MOVES --------
+
+
+inline int HDMC::mcCycle() {
+    //Cycle of n-particle Monte Carlo moves
+
+    int accCount=0;
+    if(interaction==0){
+        for(int i=0; i<n; ++i) mcAdditiveMove(accCount);
+    }
+
+    return accCount;
+}
+
+
+inline void HDMC::mcAdditiveMove(int &counter) {
+    //Single Monte Carlo move
+
+    //Choose random particle and get position and radius
+    int pI=randParticle(mtGen);
+    double xI=x[pI];
+    double yI=y[pI];
+    double rI=r[pI];
+
+    //Perform move
+    if(rand01(mtGen)<transProb){
+        //Translation move
+
+        //Apply translation
+        xI+=transDelta*(2*rand01(mtGen)-1);
+        yI+=transDelta*(2*rand01(mtGen)-1);
+        xI-=cellLen*nearbyint(xI*rCellLen);
+        yI-=cellLen*nearbyint(yI*rCellLen);
+
+        //Check for overlap with other particles
+        double dx,dy,dSq,rSq;
+        bool accept=true;
+        for(int i=0; i<n; ++i){
+            dx=xI-x[i];
+            dy=yI-y[i];
+            dx-=cellLen*nearbyint(dx*rCellLen);
+            dy-=cellLen*nearbyint(dy*rCellLen);
+            dSq=dx*dx+dy*dy;
+            rSq=pow((rI+r[i]),2);
+            if(dSq<rSq && i!=pI){
+                accept=false;
+                break;
+            }
+        }
+
+        if(accept){
+            x[pI]=xI;
+            y[pI]=yI;
+            ++counter;
+        }
+    }
+    else{
+        //Swap move
+
+        //Choose second random particle
+        int pJ=pI;
+        while(pI==pJ) pJ=randParticle(mtGen);
+
+        //Swap coordinates and radii
+        double xJ=xI;
+        double yJ=yI;
+        double rJ=rI;
+        xI=x[pJ];
+        yI=y[pJ];
+        rI=r[pJ];
+
+        //Apply translations
+        xI+=transDelta*(2*rand01(mtGen)-1);
+        yI+=transDelta*(2*rand01(mtGen)-1);
+        xI-=cellLen*nearbyint(xI*rCellLen);
+        yI-=cellLen*nearbyint(yI*rCellLen);
+        xJ+=transDelta*(2*rand01(mtGen)-1);
+        yJ+=transDelta*(2*rand01(mtGen)-1);
+        xJ-=cellLen*nearbyint(xJ*rCellLen);
+        yJ-=cellLen*nearbyint(yJ*rCellLen);
+
+        //Check for overlap with other particles
+        double dx,dy,dSq,rSq;
+        bool accept=true;
+        dx=xI-xJ;
+        dy=yI-yJ;
+        dx-=cellLen*nearbyint(dx*rCellLen);
+        dy-=cellLen*nearbyint(dy*rCellLen);
+        dSq=dx*dx+dy*dy;
+        rSq=pow((rI+rJ),2);
+        if(dSq<rSq) accept=false;
+        if(accept){
+            for(int i=0; i<n; ++i){
+                dx=xI-x[i];
+                dy=yI-y[i];
+                dx-=cellLen*nearbyint(dx*rCellLen);
+                dy-=cellLen*nearbyint(dy*rCellLen);
+                dSq=dx*dx+dy*dy;
+                rSq=pow((rI+r[i]),2);
+                if(dSq<rSq && i!=pI && i!=pJ){
+                    accept=false;
+                    break;
+                }
+            }
+        }
+        if(accept){
+            for(int i=0; i<n; ++i){
+                dx=xJ-x[i];
+                dy=yJ-y[i];
+                dx-=cellLen*nearbyint(dx*rCellLen);
+                dy-=cellLen*nearbyint(dy*rCellLen);
+                dSq=dx*dx+dy*dy;
+                rSq=pow((rJ+r[i]),2);
+                if(dSq<rSq && i!=pI && i!=pJ){
+                    accept=false;
+                    break;
+                }
+            }
+        }
+
+        if(accept){
+            x[pI]=xI;
+            y[pI]=yI;
+            r[pI]=rI;
+            x[pJ]=xJ;
+            y[pJ]=yJ;
+            r[pJ]=rJ;
+            ++counter;
+        }
+    }
+}
+
+
+//-------- MONTE CARLO SIMULATION --------
+
+
+void HDMC::equilibration(Logfile &logfile) {
+    //Equilibration Monte Carlo
+
+    //Header
+    logfile.write("Equilibration Monte Carlo");
+    ++logfile.currIndent;
+
+    //Determine ideal translation delta
+    logfile.write("Finding optimal displacement delta for acceptance probability:",acceptTarget);
+    ++logfile.currIndent;
+    //First some loops to remove any initial ordering
+    logfile.write("Disrupting any initial ordering");
+    for(int i=0; i<100; ++i){
+        double deltaMin=0.01*vMinimum(r);
+        double deltaMax=cellLen_2;
+        double accProb;
+        optimalDelta(deltaMin,deltaMax,accProb);
+    }
+    //Loop until converged
+    bool converged=false;
+    int optCode;
+    double deltaMin=0.01*vMinimum(r);
+    double deltaMax=cellLen_2;
+    double accProb;
+    int iteration=0;
+    while(!converged){
+        optCode=optimalDelta(deltaMin,deltaMax,accProb);
+        if(optCode==1 && iteration==0){
+            logfile.write("System too dense to achieve target");
+            break;
+        }
+        else if(optCode==2 && iteration==0){
+            logfile.write("System too dilute to achieve target");
+            break;
+        }
+        else logfile.write("Delta: "+to_string(transDelta)+" acceptance: "+to_string(accProb));
+        if(abs(accProb-acceptTarget)<0.005) break;
+        if(iteration>100){
+            logfile.write("Iteration limit hit");
+            break;
+        }
+        ++iteration;
+    }
+    --logfile.currIndent;
+    logfile.write("Translation delta set to:",transDelta);
+
+    //Equilibration
+    logfile.write("Running equilibration");
+    ++logfile.currIndent;
+    int logMoves=eqCycles/100;
+    int accCount=0;
+    for (int i = 1; i<=eqCycles; ++i) {
+        accCount+=mcCycle();
+        if(i%logMoves==0) logfile.write("Moves and acceptance:",i,double(accCount)/(i*n));
+    }
+    logfile.currIndent-=2;
+    logfile.separator();
+}
+
+
+int HDMC::optimalDelta(double &deltaMin, double &deltaMax, double &accProb) {
+    //Find optimal translation delta by trial and improvement
+
+    //Generate trial delta values
+    double logDeltaMin=log10(deltaMin);
+    double logDeltaMax=log10(deltaMax);
+    VecF<double> trialDelta(11),trialProb(11);
+    for(int i=0; i<11; ++i) trialDelta[i]=pow(10,logDeltaMin+i*(logDeltaMax-logDeltaMin)/10.0);
+
+    //Calculate acceptance probabilities for trial delta values
+    for(int i=0; i<11; ++i){
+        transDelta=trialDelta[i];
+        int accCount=0;
+        for(int j=0; j<10; ++j) accCount+=mcCycle();
+        trialProb[i]=double(accCount)/(10*n);
+    }
+
+    //Find limiting delta values which surround target acceptance
+    int optCode;
+    if(trialProb[0]<acceptTarget){
+        //lower bound too low
+        transDelta=trialDelta[0];
+        optCode=1;
+    }
+    if(trialProb[10]>acceptTarget){
+        //upper bound too high
+        transDelta=trialDelta[10];
+        optCode=2;
+    }
+    else{
+        for(int i=0; i<11; ++i){
+            if(trialProb[i]>acceptTarget) deltaMin=trialDelta[i];
+            else if(trialProb[i]<acceptTarget){
+                deltaMax=trialDelta[i];
+                break;
+            }
+        }
+        transDelta=pow(10,0.5*(log10(deltaMin)+log10(deltaMax)));
+        optCode=0;
+    }
+
+    //Calculate best guess for delta from current iteration
+    int accCount=0;
+    for(int j=0; j<10; ++j) accCount+=mcCycle();
+    accProb=double(accCount)/(10*n);
+
+    return optCode;
+}
+
+
+void HDMC::production(Logfile &logfile) {
+    //Production Monte Carlo
+
+    //Production cycles
+    logfile.write("Production Monte Carlo");
+    ++logfile.currIndent;
+    int logMoves=prodCycles/100;
+    int accCount=0;
+    for (int i = 1; i<=prodCycles; ++i) {
+        accCount+=mcCycle();
+        if(i%logMoves==0) logfile.write("Moves and acceptance:",i,double(accCount)/(i*n));
+    }
+    logfile.currIndent-=2;
+    logfile.separator();
+}
+
+
+void HDMC::writeXYZ(OutputFile &xyzFile) {
+    //Write configuration to XYZ file
+
+    xyzFile.write(n);
+    xyzFile.write("");
+    for(int i=0; i<n; ++i){
+        xyzFile.write("Ar "+to_string(x[i])+" "+to_string(y[i])+" 0.0");
+    }
 }

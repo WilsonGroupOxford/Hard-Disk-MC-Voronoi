@@ -44,6 +44,16 @@ double vMean(T vec){
     return vSum(vec)/vec.n;
 }
 
+//Minimum value in vector
+template <typename T>
+double vMinimum(T vec){
+    double min=vec[0];
+    for(int i=1; i<vec.n; ++i){
+        if(vec[i]<min) min=vec[i];
+    }
+    return min;
+}
+
 //Cyclic permutation of vector elements
 template <typename T>
 T vCyclicPermutation(T vec){

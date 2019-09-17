@@ -69,6 +69,12 @@ public:
         file<<val0<<" "<<val1<<endl;
     }
 
+    template <typename T, typename U, typename V>
+    void write(T val0, U val1, V val2){
+        for(int i=0; i<currIndent; ++i) file<<indent;
+        file<<val0<<" "<<val1<<" "<<val2<<endl;
+    }
+
     template <typename T>
     void writeRowVector(T vec){
         for(int i=0; i<vec.n; ++i){

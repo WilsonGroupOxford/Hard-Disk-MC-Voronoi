@@ -67,20 +67,17 @@ int main(int argc, char **argv) {
     ++logfile.currIndent;
     for(int i=0; i<2; ++i) getline(inputAuxFile,skip);
     int randomSeed; //seed for random number generator
-    int preEqMoves, eqMoves, prodMoves; //number of pre-equilibration,equilibration and production moves per particle
+    int eqCycles, prodCycles; //number of equilibration and production cycles
     double swapProb,accTarget; //swap probability and acceptance probability target
     getline(inputAuxFile,line);
     istringstream(line)>>randomSeed;
     logfile.write("Random seed:",randomSeed);
     getline(inputAuxFile,line);
-    istringstream(line)>>preEqMoves;
-    logfile.write("Pre-equilibration moves per particle:",preEqMoves);
+    istringstream(line)>>eqCycles;
+    logfile.write("Equilibration moves per particle:",eqCycles);
     getline(inputAuxFile,line);
-    istringstream(line)>>eqMoves;
-    logfile.write("Equilibration moves per particle:",eqMoves);
-    getline(inputAuxFile,line);
-    istringstream(line)>>prodMoves;
-    logfile.write("Production moves per particle:",prodMoves);
+    istringstream(line)>>prodCycles;
+    logfile.write("Production moves per particle:",prodCycles);
     getline(inputAuxFile,line);
     istringstream(line)>>swapProb;
     logfile.write("Swap move probability:",swapProb);
@@ -95,17 +92,19 @@ int main(int argc, char **argv) {
     ++logfile.currIndent;
     int latticeInit;
     HDMC simulation;
-    latticeInit=simulation.setParticles(n,packFrac,dispCode,dispParams);
+    latticeInit=simulation.setParticles(n,packFrac,dispCode,dispParams,intCode);
     if(latticeInit==1) logfile.criticalError("Packing fraction too high to form initial lattice");
     logfile.write("Starting configuration constructed");
     simulation.setRandom(randomSeed);
     logfile.write("Random number generators initialised");
-    simulation.setSimulation(preEqMoves,eqMoves,prodMoves,swapProb,accTarget);
+    simulation.setSimulation(eqCycles,prodCycles,swapProb,accTarget);
     logfile.write("Simulation parameters set");
     --logfile.currIndent;
     logfile.separator();
 
-
+    //Run Monte Carlo simulation
+    simulation.equilibration(logfile);
+    simulation.production(logfile);
 
     return 0;
 }

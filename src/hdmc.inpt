@@ -9,9 +9,8 @@ add     particle interactions (add,nonadd)
 ---------------------------------------
 Simulation Parameters
 0       random seed
-1000    pre-equilibration moves per particle
-1000    equilibration moves per particle
-1000    production moves per particle
-0.1     swap probability
+100    equilibration moves per particle
+100    production moves per particle
+1.0     swap probability
 0.5     target acceptance probability
 ---------------------------------------
