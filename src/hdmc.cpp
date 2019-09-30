@@ -91,10 +91,11 @@ int HDMC::setSimulation(int eq, int prod, double swap, double accTarg) {
 }
 
 
-int HDMC::setAnalysis(string path, int xyzFreq) {
+int HDMC::setAnalysis(string path, int xyzFreq, int anFreq, int rdf, double rdfDel) {
     //Set analysis parameters
 
     outputPrefix=path;
+    analysisFreq=anFreq;
 
     //Set xyz output frequency with 0 preventing write
     if(xyzFreq==0){
@@ -106,16 +107,36 @@ int HDMC::setAnalysis(string path, int xyzFreq) {
         xyzWriteFreq=xyzFreq;
     }
 
+    //Set rdf type
+    if(rdf==0) rdfCalc=false;
+    if(rdf==1){
+        rdfCalc=true;
+        rdfNorm=true;
+        rdfDelta=rdfDel;
+    }
+    if(rdf==2){
+        rdfCalc=true;
+        rdfNorm= false;
+        rdfDelta=rdfDel;
+    }
+
     //Initialise analysis tools
     initAnalysis();
 
+    return 0;
 }
 
 
 int HDMC::initAnalysis() {
     //Initialise analysis tools
 
+    analysisConfigs=0;
 
+    //RDF histogram
+    if(rdfCalc) rdfHist=VecF<int>(floor(cellLen_2/rdfDelta)+1); //max distance is half cell size
+
+
+    return 0;
 }
 
 
@@ -377,9 +398,45 @@ void HDMC::production(Logfile &logfile, OutputFile &xyzFile) {
         accCount+=mcCycle();
         if(i%logMoves==0) logfile.write("Moves and acceptance:",i,double(accCount)/(i*n));
         if(xyzWrite && i%xyzWriteFreq==0) writeXYZ(xyzFile);
+        if(i%analysisFreq==0) analyseConfiguration();
     }
     logfile.currIndent-=2;
     logfile.separator();
+}
+
+
+//--------- ANALYSIS ----------
+
+
+void HDMC::analyseConfiguration() {
+    //Control analysis of current configuration
+
+    if(rdfCalc) calculateRDF();
+    ++analysisConfigs;
+}
+
+
+void HDMC::calculateRDF() {
+    //Calculate RDF for current configuration
+
+    double xI,yI,b;
+    double dx,dy,dSq,d;
+    for(int i=0; i<n-1; ++i){
+        xI=x[i];
+        yI=y[i];
+        for(int j=i+1; j<n; ++j){
+            dx=xI-x[j];
+            dy=yI-y[j];
+            dx-=cellLen*nearbyint(dx*rCellLen);
+            dy-=cellLen*nearbyint(dy*rCellLen);
+            dSq=dx*dx+dy*dy;
+            d=sqrt(dSq);
+            if(d<cellLen_2){
+                b=floor(d/rdfDelta);
+                rdfHist[b]+=2;
+            }
+        }
+    }
 }
 
 
@@ -391,4 +448,27 @@ void HDMC::writeXYZ(OutputFile &xyzFile) {
     for(int i=0; i<n; ++i){
         xyzFile.write("Ar "+to_string(x[i])+" "+to_string(y[i])+" 0.0");
     }
+}
+
+
+void HDMC::writeAnalysis(Logfile &logfile) {
+    //Write analysis results to files
+
+    //RDF
+    if(rdfCalc){
+        OutputFile rdfFile(outputPrefix+"_rdf.dat");
+        VecF<double> rdfVals(rdfHist.n),rdfBins(rdfHist.n);
+        for(int i=0; i<rdfHist.n; ++i){
+            rdfBins[i]=rdfDelta*(i+0.5);
+            rdfVals[i]=rdfHist[i];
+        }
+        if(rdfNorm){
+            double norm=n*(n/pow(cellLen,2))*M_PI*analysisConfigs; //n*density*pi*configs
+            for(int i=0; i<rdfVals.n; ++i){
+                rdfVals[i]/=norm*(pow((i+1)*rdfDelta,2)-pow(i*rdfDelta,2));
+            }
+        }
+        for(int i=0; i<rdfBins.n; ++i) rdfFile.write(rdfBins[i],rdfVals[i]);
+    }
+
 }

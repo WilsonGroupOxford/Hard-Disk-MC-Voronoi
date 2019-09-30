@@ -36,26 +36,31 @@ public:
 
     //Analysis and output parameters
     string outputPrefix; //output file path and prefix
-    bool xyzWrite; //flags to write xyz file
-    int xyzWriteFreq; //frequency of xyz write
+    bool xyzWrite,rdfCalc,rdfNorm; //flags to write xyz file, calculate and normalise RDF
+    int xyzWriteFreq, analysisFreq; //frequency of xyz write and analysis
+    int analysisConfigs; //number of analysis configurations
+    double rdfDelta; //RDF bin width
+    VecF<int> rdfHist; //RDF histogram
 
     //Constructor and setters
     HDMC();
     int setParticles(int num, double packFrac, int disp, VecF<double> dispParams, int interact); //set particle properties
     int setRandom(int seed); //set random number generation
     int setSimulation(int eq, int prod, double swap, double accTarg); //set simulation parameters
-    int setAnalysis(string path, int xyzFreq); //set analysis parameters
+    int setAnalysis(string path, int xyzFreq, int anFreq, int rdf, double rdfDel); //set analysis parameters
 
     //Member functions
     int initMono(VecF<double> dispParams); //initialise monodisperse particle system
     int initAnalysis(); //initialise analysis tools
     void equilibration(Logfile &logfile, OutputFile &xyzFile); //equilibration Monte Carlo
     void production(Logfile &logfile, OutputFile &xyzFile); //production Monte Carlo
+    void analyseConfiguration(); //analyse current configuration
+    void calculateRDF(); //calculate RDF for current configuration
     int optimalDelta(double &deltaMin, double &deltaMax, double &accProb); //find optimal translational delta
     int mcCycle(); //set of n-particle Monte Carlo moves
     void mcAdditiveMove(int &counter); //single Monte Carlo move with additive distances
     void writeXYZ(OutputFile &xyzFile); //write configuration to xyz file
-
+    void writeAnalysis(Logfile &logfile); //write analysis results to file
 };
 
 

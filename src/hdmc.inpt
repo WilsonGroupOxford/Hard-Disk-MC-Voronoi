@@ -10,13 +10,16 @@ add     particle interactions (add,nonadd)
 Simulation Parameters
 0       random seed
 100    equilibration moves per particle
-100    production moves per particle
+1000    production moves per particle
 1.0     swap probability
 0.5     target acceptance probability
 ---------------------------------------
 Analysis and Output
-./output/test   path with run prefix for output files
-0   XYZ file write frequency (0=None)
+./output/test       path with run prefix for output files
+0       XYZ file write frequency (0=none)
+1     analysis frequency
+1       calculate RDF (0=none,1=normalised,2=unnormalised)
+0.02    RDF bin width
 ---------------------------------------
 
 

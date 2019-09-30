@@ -60,8 +60,7 @@ int main(int argc, char **argv) {
     getline(inputFile,line);
     istringstream(line)>>packFrac;
     logfile.write("Packing fraction:",packFrac);
-    logfile.currIndent -= 2;
-    logfile.separator();
+    --logfile.currIndent;
     //Simulation parameters
     logfile.write("Reading simulation parameters");
     ++logfile.currIndent;
@@ -85,18 +84,30 @@ int main(int argc, char **argv) {
     istringstream(line)>>accTarget;
     logfile.write("Target acceptance probability:",accTarget);
     --logfile.currIndent;
-    logfile.separator();
     //Analysis and output parameters
     logfile.write("Reading analysis and output parameters");
     ++logfile.currIndent;
     for(int i=0; i<2; ++i) getline(inputFile,skip);
     string outputPrefix;
-    int xyzWriteFreq;
+    int xyzWriteFreq,analysisFreq,rdfAnalysis;
+    double rdfDelta;
     getline(inputFile,line);
     istringstream(line)>>outputPrefix;
+    logfile.write("Output prefix:",outputPrefix);
     getline(inputFile,line);
     istringstream(line)>>xyzWriteFreq;
+    logfile.write("XYZ file write frequency (cycles):",xyzWriteFreq);
+    getline(inputFile,line);
+    istringstream(line)>>analysisFreq;
+    logfile.write("Analysis frequency (cycles):",analysisFreq);
+    getline(inputFile,line);
+    istringstream(line)>>rdfAnalysis;
+    logfile.write("Radial distribution function calculation:",rdfAnalysis);
+    getline(inputFile,line);
+    istringstream(line)>>rdfDelta;
+    logfile.write("Radial distribution function bin width:",rdfDelta);
     --logfile.currIndent;
+    logfile.separator();
 
     //Initialise Monte Carlo simulation
     logfile.write("Initialising Monte Carlo simulation");
@@ -109,8 +120,9 @@ int main(int argc, char **argv) {
     simulation.setRandom(randomSeed);
     logfile.write("Random number generators initialised");
     simulation.setSimulation(eqCycles,prodCycles,swapProb,accTarget);
-    simulation.setAnalysis(outputPrefix,xyzWriteFreq);
     logfile.write("Simulation parameters set");
+    simulation.setAnalysis(outputPrefix,xyzWriteFreq,analysisFreq,rdfAnalysis,rdfDelta);
+    logfile.write("Analysis and write parameters set");
     --logfile.currIndent;
     logfile.separator();
 
@@ -120,6 +132,9 @@ int main(int argc, char **argv) {
     //Run Monte Carlo simulation (xyz written only for production atm)
     simulation.equilibration(logfile,xyzFile);
     simulation.production(logfile,xyzFile);
+
+    //Write analysis to files
+    simulation.writeAnalysis(logfile);
 
     return 0;
 }
