@@ -10,6 +10,7 @@
 #include "vecf.h"
 #include "vecr.h"
 #include "vec_func.h"
+#include "voronoi.h"
 
 class HDMC {
     //Hard disk Monte Carlo class
@@ -19,6 +20,7 @@ public:
     //Particle and system parameters
     int n; //number of particles
     int interaction; //additive or non-additive interactions
+    int dispersity; //mono/bi/poly disperse
     double phi; //packing fraction
     double cellLen,rCellLen,cellLen_2; //cell length, reciprocal and half
     VecF<double> x,y,r; //particle x coords, y coords and radii
@@ -36,31 +38,36 @@ public:
 
     //Analysis and output parameters
     string outputPrefix; //output file path and prefix
-    bool xyzWrite,rdfCalc,rdfNorm; //flags to write xyz file, calculate and normalise RDF
+    bool xyzWrite,rdfCalc,rdfNorm,vorCalc,radCalc; //flags to write xyz file, calculate and normalise RDF, calculate (radical) Voronoi
     int xyzWriteFreq, analysisFreq; //frequency of xyz write and analysis
     int analysisConfigs; //number of analysis configurations
     double rdfDelta; //RDF bin width
     VecF<int> rdfHist; //RDF histogram
+    int maxVertices; //set maximum on number of vertices
+    VecF<int> vorSizes,radSizes; //voronoi/radical cell sizes
+    VecF< VecF<int> > vorAdjs,radAdjs; //voronoi/radical cell size adjacencies
 
     //Constructor and setters
     HDMC();
     int setParticles(int num, double packFrac, int disp, VecF<double> dispParams, int interact); //set particle properties
     int setRandom(int seed); //set random number generation
     int setSimulation(int eq, int prod, double swap, double accTarg); //set simulation parameters
-    int setAnalysis(string path, int xyzFreq, int anFreq, int rdf, double rdfDel); //set analysis parameters
+    int setAnalysis(string path, int xyzFreq, int anFreq, int rdf, double rdfDel, int vor); //set analysis parameters
 
     //Member functions
     int initMono(VecF<double> dispParams); //initialise monodisperse particle system
     int initAnalysis(); //initialise analysis tools
     void equilibration(Logfile &logfile, OutputFile &xyzFile); //equilibration Monte Carlo
-    void production(Logfile &logfile, OutputFile &xyzFile); //production Monte Carlo
-    void analyseConfiguration(); //analyse current configuration
+    void production(Logfile &logfile, OutputFile &xyzFile, OutputFile &vorFile, OutputFile &radFile); //production Monte Carlo
+    void analyseConfiguration(OutputFile &vorFile, OutputFile &radFile); //analyse current configuration
     void calculateRDF(); //calculate RDF for current configuration
+    void calculateVoronoi(OutputFile &vorFile); //calculate Voronoi and analyse
+    VecF<double> networkAnalysis(VecF<int> &sizes, VecF< VecF<int> > &adjs); //network analysis of sizes
     int optimalDelta(double &deltaMin, double &deltaMax, double &accProb); //find optimal translational delta
     int mcCycle(); //set of n-particle Monte Carlo moves
     void mcAdditiveMove(int &counter); //single Monte Carlo move with additive distances
     void writeXYZ(OutputFile &xyzFile); //write configuration to xyz file
-    void writeAnalysis(Logfile &logfile); //write analysis results to file
+    void writeAnalysis(Logfile &logfile, OutputFile &vorFile, OutputFile &radFile); //write analysis results to file
 };
 
 

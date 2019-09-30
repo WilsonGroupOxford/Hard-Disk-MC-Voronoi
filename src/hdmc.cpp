@@ -29,6 +29,7 @@ int HDMC::setParticles(int num, double packFrac, int disp, VecF<double> dispPara
 
     //Initialise particle lattice
     int lattice;
+    dispersity=disp;
     if(disp==1) lattice=initMono(dispParams);
     if(lattice==0){//apply periodic boundary condition
         for(int i=0; i<n; ++i){
@@ -91,7 +92,7 @@ int HDMC::setSimulation(int eq, int prod, double swap, double accTarg) {
 }
 
 
-int HDMC::setAnalysis(string path, int xyzFreq, int anFreq, int rdf, double rdfDel) {
+int HDMC::setAnalysis(string path, int xyzFreq, int anFreq, int rdf, double rdfDel, int vor) {
     //Set analysis parameters
 
     outputPrefix=path;
@@ -109,16 +110,27 @@ int HDMC::setAnalysis(string path, int xyzFreq, int anFreq, int rdf, double rdfD
 
     //Set rdf type
     if(rdf==0) rdfCalc=false;
-    if(rdf==1){
+    else if(rdf==1){
         rdfCalc=true;
         rdfNorm=true;
         rdfDelta=rdfDel;
     }
-    if(rdf==2){
+    else if(rdf==2){
         rdfCalc=true;
         rdfNorm= false;
         rdfDelta=rdfDel;
     }
+
+    //Set voronoi type
+    vorCalc=false;
+    radCalc=false;
+    if(vor==1) vorCalc=true;
+    else if(vor==2) radCalc=true;
+    else if(vor==3){
+        vorCalc=true;
+        radCalc=true;
+    }
+    maxVertices=21;
 
     //Initialise analysis tools
     initAnalysis();
@@ -135,6 +147,17 @@ int HDMC::initAnalysis() {
     //RDF histogram
     if(rdfCalc) rdfHist=VecF<int>(floor(cellLen_2/rdfDelta)+1); //max distance is half cell size
 
+    //Voronoi distributions
+    if(vorCalc){
+        vorSizes=VecF<int>(maxVertices);
+        vorAdjs=VecF< VecF<int> >(maxVertices);
+        for(int i=0; i<maxVertices; ++i) vorAdjs[i]=VecF<int>(maxVertices);
+    }
+    if(radCalc){
+        radSizes=VecF<int>(maxVertices);
+        radAdjs=VecF< VecF<int> >(maxVertices);
+        for(int i=0; i<maxVertices; ++i) radAdjs[i]=VecF<int>(maxVertices);
+    }
 
     return 0;
 }
@@ -386,7 +409,7 @@ int HDMC::optimalDelta(double &deltaMin, double &deltaMax, double &accProb) {
 }
 
 
-void HDMC::production(Logfile &logfile, OutputFile &xyzFile) {
+void HDMC::production(Logfile &logfile, OutputFile &xyzFile, OutputFile &vorFile, OutputFile &radFile) {
     //Production Monte Carlo
 
     //Production cycles
@@ -398,7 +421,7 @@ void HDMC::production(Logfile &logfile, OutputFile &xyzFile) {
         accCount+=mcCycle();
         if(i%logMoves==0) logfile.write("Moves and acceptance:",i,double(accCount)/(i*n));
         if(xyzWrite && i%xyzWriteFreq==0) writeXYZ(xyzFile);
-        if(i%analysisFreq==0) analyseConfiguration();
+        if(i%analysisFreq==0) analyseConfiguration(vorFile,radFile);
     }
     logfile.currIndent-=2;
     logfile.separator();
@@ -408,10 +431,12 @@ void HDMC::production(Logfile &logfile, OutputFile &xyzFile) {
 //--------- ANALYSIS ----------
 
 
-void HDMC::analyseConfiguration() {
+void HDMC::analyseConfiguration(OutputFile &vorFile, OutputFile &radFile) {
     //Control analysis of current configuration
 
     if(rdfCalc) calculateRDF();
+    if(vorCalc) calculateVoronoi(vorFile);
+
     ++analysisConfigs;
 }
 
@@ -440,6 +465,56 @@ void HDMC::calculateRDF() {
 }
 
 
+void HDMC::calculateVoronoi(OutputFile &vorFile) {
+    //Calculate Voronoi and analyse
+
+    //Make voronoi and calculate cell sizes and neighbours
+    VecF<int> cellSizeDist;
+    VecF<VecF<int> > cellAdjDist;
+    Voronoi vor(x, y, r, cellLen_2, false);
+    vor.analyse(maxVertices, cellSizeDist, cellAdjDist);
+
+    //Add results to global results
+    vorSizes += cellSizeDist;
+    for (int i = 0; i < cellAdjDist.n; ++i) vorAdjs[i] += cellAdjDist[i];
+
+    //Get network analysis for configuration
+    VecF<double> res = networkAnalysis(cellSizeDist, cellAdjDist);
+
+    vorFile.writeRowVector(res);
+}
+
+
+VecF<double> HDMC::networkAnalysis(VecF<int> &sizes, VecF< VecF<int> > &adjs) {
+    //Calculate normalised size distribution and assortativity
+
+    //Normalised size distribution and moments
+    VecF<double> res(maxVertices+1);
+    double normSize=vSum(sizes);
+    for(int i=0; i<sizes.n; ++i) res[i]=sizes[i]/normSize;
+    double k1=0.0,k2=0.0,k3=0.0;
+    for(int i=0; i<sizes.n; ++i){
+        k1+=i*res[i];
+        k2+=i*i*res[i];
+        k3+=i*i*i*res[i];
+    }
+
+    //Assortativity
+    double normAdj=0.0;
+    for(int i=0; i<adjs.n; ++i) normAdj+=vSum(adjs[i]);
+    double r=0.0;
+    for(int i=0; i<adjs.n; ++i){
+        for(int j=0; j<adjs.n; ++j){
+            r+=i*j*adjs[i][j];
+        }
+    }
+    r=(k1*k1*r/normAdj-k2*k2)/(k1*k3-k2*k2);
+    res[maxVertices]=r;
+
+    return res;
+}
+
+
 void HDMC::writeXYZ(OutputFile &xyzFile) {
     //Write configuration to XYZ file
 
@@ -451,7 +526,7 @@ void HDMC::writeXYZ(OutputFile &xyzFile) {
 }
 
 
-void HDMC::writeAnalysis(Logfile &logfile) {
+void HDMC::writeAnalysis(Logfile &logfile, OutputFile &vorFile, OutputFile &radFile) {
     //Write analysis results to files
 
     //RDF
@@ -471,4 +546,9 @@ void HDMC::writeAnalysis(Logfile &logfile) {
         for(int i=0; i<rdfBins.n; ++i) rdfFile.write(rdfBins[i],rdfVals[i]);
     }
 
+    //Voronoi
+    if(vorCalc){
+        VecF<double> res=networkAnalysis(vorSizes,vorAdjs);
+        vorFile.writeRowVector(res);
+    }
 }

@@ -53,7 +53,7 @@ double vAngle(T vec0, T vec1, double& n0, double &n1){
 //Mean of vector
 template <typename T>
 double vMean(T vec){
-    return vSum(vec)/vec.n;
+    return double(vSum(vec))/vec.n;
 }
 
 //Cyclic permutation of vector elements

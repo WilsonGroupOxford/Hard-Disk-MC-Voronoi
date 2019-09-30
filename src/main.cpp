@@ -89,7 +89,7 @@ int main(int argc, char **argv) {
     ++logfile.currIndent;
     for(int i=0; i<2; ++i) getline(inputFile,skip);
     string outputPrefix;
-    int xyzWriteFreq,analysisFreq,rdfAnalysis;
+    int xyzWriteFreq,analysisFreq,rdfAnalysis,vorAnalysis;
     double rdfDelta;
     getline(inputFile,line);
     istringstream(line)>>outputPrefix;
@@ -106,6 +106,9 @@ int main(int argc, char **argv) {
     getline(inputFile,line);
     istringstream(line)>>rdfDelta;
     logfile.write("Radial distribution function bin width:",rdfDelta);
+    getline(inputFile,line);
+    istringstream(line)>>vorAnalysis;
+    logfile.write("Voronoi analysis:",vorAnalysis);
     --logfile.currIndent;
     logfile.separator();
 
@@ -121,20 +124,22 @@ int main(int argc, char **argv) {
     logfile.write("Random number generators initialised");
     simulation.setSimulation(eqCycles,prodCycles,swapProb,accTarget);
     logfile.write("Simulation parameters set");
-    simulation.setAnalysis(outputPrefix,xyzWriteFreq,analysisFreq,rdfAnalysis,rdfDelta);
+    simulation.setAnalysis(outputPrefix,xyzWriteFreq,analysisFreq,rdfAnalysis,rdfDelta,vorAnalysis);
     logfile.write("Analysis and write parameters set");
     --logfile.currIndent;
     logfile.separator();
 
-    //Set up xyz output file
+    //Set up output files
     OutputFile xyzFile(outputPrefix+".xyz");
+    OutputFile vorFile(outputPrefix+"_vor.dat");
+    OutputFile radFile(outputPrefix+"_rad.dat");
 
     //Run Monte Carlo simulation (xyz written only for production atm)
     simulation.equilibration(logfile,xyzFile);
-    simulation.production(logfile,xyzFile);
+    simulation.production(logfile,xyzFile,vorFile,radFile);
 
     //Write analysis to files
-    simulation.writeAnalysis(logfile);
+    simulation.writeAnalysis(logfile,vorFile,radFile);
 
     return 0;
 }

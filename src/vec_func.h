@@ -41,7 +41,7 @@ double vNormSq(T vec){
 //Mean of vector
 template <typename T>
 double vMean(T vec){
-    return vSum(vec)/vec.n;
+    return double(vSum(vec))/vec.n;
 }
 
 //Minimum value in vector

@@ -10,3 +10,4 @@ file(GLOB SOURCE_FILES
 )
 
 add_executable(hdmc.x ${SOURCE_FILES})
+target_link_libraries(hdmc.x /Users/David/Documents/Work/DPhil/Code/development/2d_colloid_monte_carlo/voro++/src/libvoro++.a)
