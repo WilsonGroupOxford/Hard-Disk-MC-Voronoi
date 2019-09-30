@@ -34,16 +34,23 @@ public:
     double acceptTarget; //move acceptance target
     double transDelta; //shift for translations
 
+    //Analysis and output parameters
+    string outputPrefix; //output file path and prefix
+    bool xyzWrite; //flags to write xyz file
+    int xyzWriteFreq; //frequency of xyz write
+
     //Constructor and setters
     HDMC();
     int setParticles(int num, double packFrac, int disp, VecF<double> dispParams, int interact); //set particle properties
     int setRandom(int seed); //set random number generation
     int setSimulation(int eq, int prod, double swap, double accTarg); //set simulation parameters
+    int setAnalysis(string path, int xyzFreq); //set analysis parameters
 
     //Member functions
     int initMono(VecF<double> dispParams); //initialise monodisperse particle system
-    void equilibration(Logfile &logfile); //equilibration Monte Carlo
-    void production(Logfile &logfile); //production Monte Carlo
+    int initAnalysis(); //initialise analysis tools
+    void equilibration(Logfile &logfile, OutputFile &xyzFile); //equilibration Monte Carlo
+    void production(Logfile &logfile, OutputFile &xyzFile); //production Monte Carlo
     int optimalDelta(double &deltaMin, double &deltaMax, double &accProb); //find optimal translational delta
     int mcCycle(); //set of n-particle Monte Carlo moves
     void mcAdditiveMove(int &counter); //single Monte Carlo move with additive distances

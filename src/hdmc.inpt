@@ -14,3 +14,9 @@ Simulation Parameters
 1.0     swap probability
 0.5     target acceptance probability
 ---------------------------------------
+Analysis and Output
+./output/test   path with run prefix for output files
+0   XYZ file write frequency (0=None)
+---------------------------------------
+
+

@@ -17,8 +17,8 @@ int main(int argc, char **argv) {
 
     //Read input parameters
     logfile.write("Reading input parameters");
-    ifstream inputAuxFile("./hdmc.inpt", ios::in);
-    if(!inputAuxFile.good()) logfile.criticalError("Cannot find input file hdmc.inpt");
+    ifstream inputFile("./hdmc.inpt", ios::in);
+    if(!inputFile.good()) logfile.criticalError("Cannot find input file hdmc.inpt");
     string skip,line;
     ++logfile.currIndent;
     //Particle parameters
@@ -30,24 +30,24 @@ int main(int argc, char **argv) {
     int dispCode,intCode; //numeric codes for dispersity/interaction types
     logfile.write("Reading particle parameters");
     ++logfile.currIndent;
-    for(int i=0; i<3; ++i) getline(inputAuxFile,skip);
-    getline(inputAuxFile,line);
+    for(int i=0; i<3; ++i) getline(inputFile,skip);
+    getline(inputFile,line);
     istringstream(line)>>n;
     logfile.write("Number of particles:",n);
-    getline(inputAuxFile,line);
+    getline(inputFile,line);
     istringstream(line)>>disp;
     logfile.write("Particle dispersity:",disp);
     if(disp.substr(0,2)=="bi") cout<<"XXX"<<endl;
     else if(disp.substr(0,4)=="mono"){
         dispParams=VecF<double>(1);
-        getline(inputAuxFile,line);
+        getline(inputFile,line);
         istringstream(line)>>dispParams[0];
         dispCode=1;
         logfile.write("Particle radii:",dispParams[0]);
     }
     else if(disp.substr(0,4)=="poly") cout<<"ZZZ"<<endl;
     else logfile.criticalError("Error reading particle dispersity code");
-    getline(inputAuxFile,line);
+    getline(inputFile,line);
     istringstream(line)>>interaction;
     if(interaction.substr(0,3)=="add"){
         intCode=0;
@@ -57,7 +57,7 @@ int main(int argc, char **argv) {
         intCode=1;
         logfile.write("Particle interactions: non-additive");
     }
-    getline(inputAuxFile,line);
+    getline(inputFile,line);
     istringstream(line)>>packFrac;
     logfile.write("Packing fraction:",packFrac);
     logfile.currIndent -= 2;
@@ -65,27 +65,38 @@ int main(int argc, char **argv) {
     //Simulation parameters
     logfile.write("Reading simulation parameters");
     ++logfile.currIndent;
-    for(int i=0; i<2; ++i) getline(inputAuxFile,skip);
+    for(int i=0; i<2; ++i) getline(inputFile,skip);
     int randomSeed; //seed for random number generator
     int eqCycles, prodCycles; //number of equilibration and production cycles
     double swapProb,accTarget; //swap probability and acceptance probability target
-    getline(inputAuxFile,line);
+    getline(inputFile,line);
     istringstream(line)>>randomSeed;
     logfile.write("Random seed:",randomSeed);
-    getline(inputAuxFile,line);
+    getline(inputFile,line);
     istringstream(line)>>eqCycles;
     logfile.write("Equilibration moves per particle:",eqCycles);
-    getline(inputAuxFile,line);
+    getline(inputFile,line);
     istringstream(line)>>prodCycles;
     logfile.write("Production moves per particle:",prodCycles);
-    getline(inputAuxFile,line);
+    getline(inputFile,line);
     istringstream(line)>>swapProb;
     logfile.write("Swap move probability:",swapProb);
-    getline(inputAuxFile,line);
+    getline(inputFile,line);
     istringstream(line)>>accTarget;
     logfile.write("Target acceptance probability:",accTarget);
     --logfile.currIndent;
     logfile.separator();
+    //Analysis and output parameters
+    logfile.write("Reading analysis and output parameters");
+    ++logfile.currIndent;
+    for(int i=0; i<2; ++i) getline(inputFile,skip);
+    string outputPrefix;
+    int xyzWriteFreq;
+    getline(inputFile,line);
+    istringstream(line)>>outputPrefix;
+    getline(inputFile,line);
+    istringstream(line)>>xyzWriteFreq;
+    --logfile.currIndent;
 
     //Initialise Monte Carlo simulation
     logfile.write("Initialising Monte Carlo simulation");
@@ -98,13 +109,17 @@ int main(int argc, char **argv) {
     simulation.setRandom(randomSeed);
     logfile.write("Random number generators initialised");
     simulation.setSimulation(eqCycles,prodCycles,swapProb,accTarget);
+    simulation.setAnalysis(outputPrefix,xyzWriteFreq);
     logfile.write("Simulation parameters set");
     --logfile.currIndent;
     logfile.separator();
 
-    //Run Monte Carlo simulation
-    simulation.equilibration(logfile);
-    simulation.production(logfile);
+    //Set up xyz output file
+    OutputFile xyzFile(outputPrefix+".xyz");
+
+    //Run Monte Carlo simulation (xyz written only for production atm)
+    simulation.equilibration(logfile,xyzFile);
+    simulation.production(logfile,xyzFile);
 
     return 0;
 }

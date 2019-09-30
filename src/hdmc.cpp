@@ -91,6 +91,34 @@ int HDMC::setSimulation(int eq, int prod, double swap, double accTarg) {
 }
 
 
+int HDMC::setAnalysis(string path, int xyzFreq) {
+    //Set analysis parameters
+
+    outputPrefix=path;
+
+    //Set xyz output frequency with 0 preventing write
+    if(xyzFreq==0){
+        xyzWrite=false;
+        xyzWriteFreq=1;
+    }
+    else{
+        xyzWrite=true;
+        xyzWriteFreq=xyzFreq;
+    }
+
+    //Initialise analysis tools
+    initAnalysis();
+
+}
+
+
+int HDMC::initAnalysis() {
+    //Initialise analysis tools
+
+
+}
+
+
 //-------- MONTE CARLO MOVES --------
 
 
@@ -227,7 +255,7 @@ inline void HDMC::mcAdditiveMove(int &counter) {
 //-------- MONTE CARLO SIMULATION --------
 
 
-void HDMC::equilibration(Logfile &logfile) {
+void HDMC::equilibration(Logfile &logfile, OutputFile &xyzFile) {
     //Equilibration Monte Carlo
 
     //Header
@@ -337,7 +365,7 @@ int HDMC::optimalDelta(double &deltaMin, double &deltaMax, double &accProb) {
 }
 
 
-void HDMC::production(Logfile &logfile) {
+void HDMC::production(Logfile &logfile, OutputFile &xyzFile) {
     //Production Monte Carlo
 
     //Production cycles
@@ -348,6 +376,7 @@ void HDMC::production(Logfile &logfile) {
     for (int i = 1; i<=prodCycles; ++i) {
         accCount+=mcCycle();
         if(i%logMoves==0) logfile.write("Moves and acceptance:",i,double(accCount)/(i*n));
+        if(xyzWrite && i%xyzWriteFreq==0) writeXYZ(xyzFile);
     }
     logfile.currIndent-=2;
     logfile.separator();
