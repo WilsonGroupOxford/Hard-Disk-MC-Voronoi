@@ -1,3 +1,0 @@
-/Users/David/Documents/Work/DPhil/Code/development/2d_colloid_monte_carlo/mc/cmake-build-debug/CMakeFiles/rebuild_cache.dir
-/Users/David/Documents/Work/DPhil/Code/development/2d_colloid_monte_carlo/mc/cmake-build-debug/CMakeFiles/edit_cache.dir
-/Users/David/Documents/Work/DPhil/Code/development/2d_colloid_monte_carlo/mc/cmake-build-debug/CMakeFiles/mc.x.dir

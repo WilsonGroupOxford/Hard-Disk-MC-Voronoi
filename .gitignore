@@ -9,10 +9,8 @@
 *.mpg
 *.pdf
 *.tmp
-python_archive/
-*/cmake*/
-analysis/cmake*/
-test_simulations/
+*/cmake-build-*/
+archive/
 voro++/
 ph/
 dev/
