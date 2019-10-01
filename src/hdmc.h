@@ -45,7 +45,7 @@ public:
     int xyzWriteFreq, analysisFreq; //frequency of xyz write and analysis
     int analysisConfigs; //number of analysis configurations
     double rdfDelta; //RDF bin width
-    VecF<int> rdfHist; //RDF histogram
+    VecF<int> rdfHist,prdfHistAA,prdfHistAB,prdfHistBB; //RDF histogram
     int maxVertices; //set maximum on number of vertices
     VecF<int> vorSizes,radSizes; //voronoi/radical cell sizes
     VecF< VecF<int> > vorAdjs,radAdjs; //voronoi/radical cell size adjacencies

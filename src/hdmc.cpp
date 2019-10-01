@@ -103,9 +103,6 @@ int HDMC::setAnalysis(string path, int xyzFreq, int anFreq, int rdf, double rdfD
     }
     maxVertices=21;
 
-    //Initialise analysis tools
-    initAnalysis();
-
     return 0;
 }
 
@@ -116,7 +113,15 @@ int HDMC::initAnalysis() {
     analysisConfigs=0;
 
     //RDF histogram
-    if(rdfCalc) rdfHist=VecF<int>(floor(cellLen_2/rdfDelta)+1); //max distance is half cell size
+    if(rdfCalc){
+        int maxBin=floor(cellLen_2/rdfDelta)+1; //max distance is half cell size
+        rdfHist=VecF<int>(maxBin);
+        if(dispersity==2){//bidisperse calculate partial rdfs
+            prdfHistAA=VecF<int>(maxBin);
+            prdfHistAB=VecF<int>(maxBin);
+            prdfHistBB=VecF<int>(maxBin);
+        }
+    }
 
     //Voronoi distributions
     if(vorCalc){
@@ -174,6 +179,9 @@ int HDMC::initialiseConfiguration(Logfile &logfile) {
 
     //Exit if cannot generate
     if(!resolved) logfile.criticalError("Could not generate starting configuration");
+
+    //Initialise analysis tools here as require cell length
+    initAnalysis();
 
     --logfile.currIndent;
     logfile.separator();
@@ -541,21 +549,77 @@ void HDMC::analyseConfiguration(OutputFile &vorFile, OutputFile &radFile) {
 void HDMC::calculateRDF() {
     //Calculate RDF for current configuration
 
+    //Calculate pairwise distances and bin
     double xI,yI,b;
     double dx,dy,dSq,d;
-    for(int i=0; i<n-1; ++i){
-        xI=x[i];
-        yI=y[i];
-        for(int j=i+1; j<n; ++j){
-            dx=xI-x[j];
-            dy=yI-y[j];
-            dx-=cellLen*nearbyint(dx*rCellLen);
-            dy-=cellLen*nearbyint(dy*rCellLen);
-            dSq=dx*dx+dy*dy;
-            d=sqrt(dSq);
-            if(d<cellLen_2){
-                b=floor(d/rdfDelta);
-                rdfHist[b]+=2;
+    if(dispersity==1) {//monodisperse calculate total rdf
+        for (int i = 0; i < n - 1; ++i) {
+            xI = x[i];
+            yI = y[i];
+            for (int j = i + 1; j < n; ++j) {
+                dx = xI - x[j];
+                dy = yI - y[j];
+                dx -= cellLen * nearbyint(dx * rCellLen);
+                dy -= cellLen * nearbyint(dy * rCellLen);
+                dSq = dx * dx + dy * dy;
+                d = sqrt(dSq);
+                if (d < cellLen_2) {
+                    b = floor(d / rdfDelta);
+                    rdfHist[b] += 2;
+                }
+            }
+        }
+    }
+    else if(dispersity==2) {//bidisperse calculate partial then total rdfs
+        //AA
+        for (int i=0; i<nA-1; ++i) {
+            xI = x[i];
+            yI = y[i];
+            for (int j=i+1; j<nA; ++j) {
+                dx = xI - x[j];
+                dy = yI - y[j];
+                dx -= cellLen * nearbyint(dx * rCellLen);
+                dy -= cellLen * nearbyint(dy * rCellLen);
+                dSq = dx * dx + dy * dy;
+                d = sqrt(dSq);
+                if (d < cellLen_2) {
+                    b = floor(d / rdfDelta);
+                    prdfHistAA[b] += 2;
+                }
+            }
+        }
+        //AB
+        for (int i=0; i<nA; ++i) {
+            xI = x[i];
+            yI = y[i];
+            for (int j=nA; j<n; ++j) {
+                dx = xI - x[j];
+                dy = yI - y[j];
+                dx -= cellLen * nearbyint(dx * rCellLen);
+                dy -= cellLen * nearbyint(dy * rCellLen);
+                dSq = dx * dx + dy * dy;
+                d = sqrt(dSq);
+                if (d < cellLen_2) {
+                    b = floor(d / rdfDelta);
+                    prdfHistAB[b] += 2;
+                }
+            }
+        }
+        //BB
+        for (int i=nA; i<n-1; ++i) {
+            xI = x[i];
+            yI = y[i];
+            for (int j=i+1; j<n; ++j) {
+                dx = xI - x[j];
+                dy = yI - y[j];
+                dx -= cellLen * nearbyint(dx * rCellLen);
+                dy -= cellLen * nearbyint(dy * rCellLen);
+                dSq = dx * dx + dy * dy;
+                d = sqrt(dSq);
+                if (d < cellLen_2) {
+                    b = floor(d / rdfDelta);
+                    prdfHistBB[b] += 2;
+                }
             }
         }
     }
@@ -639,18 +703,55 @@ void HDMC::writeAnalysis(Logfile &logfile, OutputFile &vorFile, OutputFile &radF
     //RDF
     if(rdfCalc){
         OutputFile rdfFile(outputPrefix+"_rdf.dat");
-        VecF<double> rdfVals(rdfHist.n),rdfBins(rdfHist.n);
-        for(int i=0; i<rdfHist.n; ++i){
-            rdfBins[i]=rdfDelta*(i+0.5);
-            rdfVals[i]=rdfHist[i];
+        VecF<double> bins(rdfHist.n),rdf(rdfHist.n);
+        for(int i=0; i<bins.n; ++i) bins[i]=rdfDelta*(i+0.5);
+        if(dispersity==1){//monodisperse case total rdf only
+            //Copy total rdf
+            for(int i=0; i<rdf.n; ++i) rdf[i]=rdfHist[i];
+            //Normalise if required
+            if(rdfNorm){
+                double norm=n*(n/pow(cellLen,2))*M_PI*analysisConfigs; //n*density*pi*configs
+                for(int i=0; i<rdf.n; ++i){
+                    rdf[i]/=norm*(pow((i+1)*rdfDelta,2)-pow(i*rdfDelta,2));
+                }
+            }
+            //Write
+            for(int i=0; i<rdf.n; ++i) rdfFile.write(bins[i],rdf[i]);
         }
-        if(rdfNorm){
-            double norm=n*(n/pow(cellLen,2))*M_PI*analysisConfigs; //n*density*pi*configs
-            for(int i=0; i<rdfVals.n; ++i){
-                rdfVals[i]/=norm*(pow((i+1)*rdfDelta,2)-pow(i*rdfDelta,2));
+        else if(dispersity==2){//bidisperse partials and total rdf
+            VecF<double> prdfAA(rdf.n),prdfAB(rdf.n),prdfBB(rdf.n);
+            //Copy partial rdfs
+            for(int i=0; i<rdf.n; ++i){
+                prdfAA[i]=prdfHistAA[i];
+                prdfAB[i]=prdfHistAB[i];
+                prdfBB[i]=prdfHistBB[i];
+            }
+            //Sum partials to obtain total rdf
+            for(int i=0; i<rdf.n; ++i) rdf[i]=prdfAA[i]+prdfAB[i]+prdfBB[i];
+            //Normalise if required
+            if(rdfNorm){
+                double norm=n*(n/pow(cellLen,2))*M_PI*analysisConfigs; //n*density*pi*configs
+                double normAA=nA*(nA/pow(cellLen,2))*M_PI*analysisConfigs;
+                double normAB=2*nA*(nB/pow(cellLen,2))*M_PI*analysisConfigs;
+                double normBB=nB*(nB/pow(cellLen,2))*M_PI*analysisConfigs;
+                for(int i=0; i<bins.n; ++i){
+                    rdf[i]/=norm*(pow((i+1)*rdfDelta,2)-pow(i*rdfDelta,2));
+                    prdfAA[i]/=normAA*(pow((i+1)*rdfDelta,2)-pow(i*rdfDelta,2));
+                    prdfAB[i]/=normAB*(pow((i+1)*rdfDelta,2)-pow(i*rdfDelta,2));
+                    prdfBB[i]/=normBB*(pow((i+1)*rdfDelta,2)-pow(i*rdfDelta,2));
+                }
+            }
+            //Write
+            VecF<double> row(5);
+            for(int i=0; i<rdfHist.n; ++i){
+                row[0]=bins[i];
+                row[1]=rdf[i];
+                row[2]=prdfAA[i];
+                row[3]=prdfAB[i];
+                row[4]=prdfBB[i];
+                rdfFile.writeRowVector(row);
             }
         }
-        for(int i=0; i<rdfBins.n; ++i) rdfFile.write(rdfBins[i],rdfVals[i]);
     }
 
     //Voronoi
