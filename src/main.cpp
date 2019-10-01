@@ -109,17 +109,15 @@ int main(int argc, char **argv) {
     getline(inputFile,line);
     istringstream(line)>>vorAnalysis;
     logfile.write("Voronoi analysis:",vorAnalysis);
-    --logfile.currIndent;
+    logfile.currIndent-=2;
     logfile.separator();
 
     //Initialise Monte Carlo simulation
     logfile.write("Initialising Monte Carlo simulation");
     ++logfile.currIndent;
-    int latticeInit;
     HDMC simulation;
-    latticeInit=simulation.setParticles(n,packFrac,dispCode,dispParams,intCode);
-    if(latticeInit==1) logfile.criticalError("Packing fraction too high to form initial lattice");
-    logfile.write("Starting configuration constructed");
+    simulation.setParticles(n,packFrac,dispCode,dispParams,intCode);
+    logfile.write("Particle parameters set");
     simulation.setRandom(randomSeed);
     logfile.write("Random number generators initialised");
     simulation.setSimulation(eqCycles,prodCycles,swapProb,accTarget);
@@ -135,6 +133,7 @@ int main(int argc, char **argv) {
     OutputFile radFile(outputPrefix+"_rad.dat");
 
     //Run Monte Carlo simulation (xyz written only for production atm)
+    simulation.initialiseConfiguration(logfile);
     simulation.equilibration(logfile,xyzFile);
     simulation.production(logfile,xyzFile,vorFile,radFile);
 

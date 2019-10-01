@@ -3,20 +3,20 @@ Hard Disc Monte Carlo (HDMC)
 Particle Parameters
 100     number of particles
 mono    particle dispersity (mono,bi,poly)
-1.0     dispersity parameters (radius; ...)
+1.0     dispersity parameters (radius;...)
 add     particle interactions (add,nonadd)
-0.5     total packing fraction
+0.7     total packing fraction
 ---------------------------------------
 Simulation Parameters
 0       random seed
 100    equilibration moves per particle
 100    production moves per particle
-1.0     swap probability
+0.0     swap probability
 0.5     target acceptance probability
 ---------------------------------------
 Analysis and Output
 ./output/test       path with run prefix for output files
-0       XYZ file write frequency (0=none)
+1       XYZ file write frequency (0=none)
 10     analysis frequency
 0       calculate RDF (0=none,1=normalised,2=unnormalised)
 0.02    RDF bin width

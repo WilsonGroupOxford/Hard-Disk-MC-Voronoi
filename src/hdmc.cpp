@@ -21,47 +21,8 @@ int HDMC::setParticles(int num, double packFrac, int disp, VecF<double> dispPara
     n=num;
     interaction=interact;
     phi=packFrac;
-
-    //Allocate vectors
-    x=VecF<double>(n);
-    y=VecF<double>(n);
-    r=VecF<double>(n);
-
-    //Initialise particle lattice
-    int lattice;
     dispersity=disp;
-    if(disp==1) lattice=initMono(dispParams);
-    if(lattice==0){//apply periodic boundary condition
-        for(int i=0; i<n; ++i){
-            x[i]-=cellLen*nearbyint(x[i]*rCellLen);
-            y[i]-=cellLen*nearbyint(y[i]*rCellLen);
-        }
-    }
-
-    return lattice;
-}
-
-
-int HDMC::initMono(VecF<double> dispParams) {
-    //Initialise monodisperse particle configuration
-
-    //Set radii and calculate cell parameters from packing fraction
-    r=dispParams[0];
-    double area=(n*M_PI*pow(dispParams[0],2))/phi;
-    cellLen=sqrt(area);
-    rCellLen=1.0/cellLen;
-    cellLen_2=cellLen/2.0;
-
-    //Set up regular square lattice
-    int rows=floor(sqrt(n));
-    if(rows*dispParams[0]*2>cellLen) return 1; //packing fraction too high to form lattice
-    double spacing=cellLen/rows;
-    for(int i=0; i<rows; ++i){
-        for(int j=0;j<rows; ++j){
-            x[i*rows+j]=j*spacing;
-            y[i*rows+j]=i*spacing;
-        }
-    }
+    dispersityParams=dispParams;
 
     return 0;
 }
@@ -160,6 +121,126 @@ int HDMC::initAnalysis() {
     }
 
     return 0;
+}
+
+
+//---------- INITIAL CONFIGURATION --------
+
+
+int HDMC::initialiseConfiguration(Logfile &logfile) {
+    //Generate initial particle positions
+
+    logfile.write("Generating Initial Configuration");
+    ++logfile.currIndent;
+
+    //Allocate vectors
+    x=VecF<double>(n);
+    y=VecF<double>(n);
+    r=VecF<double>(n);
+
+    //Calculate simulation cell parameters
+    double area=(n*M_PI*pow(dispersityParams[0],2))/phi;
+    cellLen=sqrt(area);
+    rCellLen=1.0/cellLen;
+    cellLen_2=cellLen/2.0;
+
+    //Generate particle radii
+    if(dispersity==1) r=dispersityParams[0];
+
+    //Generate initial configuration
+    bool resolved=false;
+    for(int i=0; i<100; ++i){
+        generateRandomPositions();
+        resolved=resolvePositions();
+        logfile.write("Attempt "+to_string(i)+" successful:",resolved);
+        if(resolved) break;
+    }
+
+    //Exit if cannot generate
+    if(!resolved) logfile.criticalError("Could not generate starting configuration");
+
+    --logfile.currIndent;
+    logfile.separator();
+
+    return !resolved;
+}
+
+
+void HDMC::generateRandomPositions() {
+    //Generate random particle positions inside periodic box
+
+    //Generate random overlaps
+    for(int i=0; i<n; ++i){
+        x[i]=rand01(mtGen)*cellLen;
+        y[i]=rand01(mtGen)*cellLen;
+        x[i]-=cellLen*nearbyint(x[i]*rCellLen);
+        y[i]-=cellLen*nearbyint(y[i]*rCellLen);
+    }
+}
+
+
+bool HDMC::resolvePositions() {
+    //Resolve particle overlaps using steepest descent minimisation with LJ repulsive particles
+
+    //Set up coordinate vector
+    VecF<double> xy(2*n);
+    for(int i=0; i<n; ++i){
+        xy[2*i]=x[i];
+        xy[2*i+1]=y[i];
+    }
+
+    //Generate repulsive pairs
+    int nReps=n*(n-1)/2;
+    VecF<int> repPairs(2*nReps);
+    int repCount=0;
+    for(int i=0; i<n-1; ++i){
+        for(int j=i+1; j<n; ++j){
+            repPairs[2*repCount]=i;
+            repPairs[2*repCount+1]=j;
+            ++repCount;
+        }
+    }
+
+    //Generate repulsive epsilon parameters
+    VecF<double> repParams(2*nReps);
+    for(int i=0, j=1; i<2*nReps; i+=2, j+=2) repParams[j]=1.0;
+
+    //Set up potential model and optimiser
+    HLJ2DP potModel(cellLen, cellLen);
+    SteepestDescentArmijoMultiDim<HLJ2DP> optimiser(10000,0.5,1e-12);
+
+    //Increment radii and minimise iteratively
+    for(int k=1; k<=101; ++k){
+        for(int i=0,j=1; i<2*nReps; i+=2, j+=2) repParams[i]=pow(k*0.01*(r[repPairs[i]]+r[repPairs[j]]),2);
+        potModel.setRepulsions(repPairs,repParams);
+        optimiser(potModel,xy);
+    }
+
+    //Update coordinates
+    for(int i=0; i<n; ++i){
+        x[i]=xy[2*i];
+        y[i]=xy[2*i+1];
+    }
+
+    //Check overlaps have been resolved
+    double dx,dy,dSq,rSq;
+    bool resolved=true;
+    for(int i=0; i<n-1; ++i){
+        for(int j=i+1; j<n; ++j){
+            dx=x[i]-x[j];
+            dy=y[i]-y[j];
+            dx-=cellLen*nearbyint(dx*rCellLen);
+            dy-=cellLen*nearbyint(dy*rCellLen);
+            dSq=dx*dx+dy*dy;
+            rSq=pow((r[i]+r[j]),2);
+            if(dSq<rSq){
+                resolved=false;
+                break;
+            }
+        }
+    }
+
+    return resolved;
 }
 
 

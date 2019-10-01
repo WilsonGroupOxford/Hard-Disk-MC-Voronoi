@@ -11,6 +11,8 @@
 #include "vecr.h"
 #include "vec_func.h"
 #include "voronoi.h"
+#include "pot2d.h"
+#include "opt.h"
 
 class HDMC {
     //Hard disk Monte Carlo class
@@ -21,6 +23,7 @@ public:
     int n; //number of particles
     int interaction; //additive or non-additive interactions
     int dispersity; //mono/bi/poly disperse
+    VecF<double> dispersityParams; //dispersity parameters
     double phi; //packing fraction
     double cellLen,rCellLen,cellLen_2; //cell length, reciprocal and half
     VecF<double> x,y,r; //particle x coords, y coords and radii
@@ -55,7 +58,9 @@ public:
     int setAnalysis(string path, int xyzFreq, int anFreq, int rdf, double rdfDel, int vor); //set analysis parameters
 
     //Member functions
-    int initMono(VecF<double> dispParams); //initialise monodisperse particle system
+    int initialiseConfiguration(Logfile &logfile); //generate initial particle positions
+    void generateRandomPositions(); //generate random particle positions
+    bool resolvePositions(); //resolve overlaps using steepest descent minimisation
     int initAnalysis(); //initialise analysis tools
     void equilibration(Logfile &logfile, OutputFile &xyzFile); //equilibration Monte Carlo
     void production(Logfile &logfile, OutputFile &xyzFile, OutputFile &vorFile, OutputFile &radFile); //production Monte Carlo
