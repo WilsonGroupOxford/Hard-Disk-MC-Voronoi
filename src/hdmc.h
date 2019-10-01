@@ -20,7 +20,7 @@ class HDMC {
 public:
 
     //Particle and system parameters
-    int n; //number of particles
+    int n,nA,nB; //total number of particles, number of type A and B
     int interaction; //additive or non-additive interactions
     int dispersity; //mono/bi/poly disperse
     VecF<double> dispersityParams; //dispersity parameters

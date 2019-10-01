@@ -37,7 +37,15 @@ int main(int argc, char **argv) {
     getline(inputFile,line);
     istringstream(line)>>disp;
     logfile.write("Particle dispersity:",disp);
-    if(disp.substr(0,2)=="bi") cout<<"XXX"<<endl;
+    if(disp.substr(0,2)=="bi"){
+        dispParams=VecF<double>(3);
+        getline(inputFile,line);
+        istringstream ss(line);
+        for(int i=0; i<3; ++i) ss>>dispParams[i];
+        dispCode=2;
+        logfile.write("Particle radii:",dispParams[0],dispParams[1]);
+        logfile.write("Particle proportions: ",dispParams[2],1-dispParams[2]);
+    }
     else if(disp.substr(0,4)=="mono"){
         dispParams=VecF<double>(1);
         getline(inputFile,line);

@@ -10,6 +10,8 @@ HDMC::HDMC() {
     //Default constructor
 
     n=0;
+    nA=0;
+    nB=0;
     phi=0;
 }
 
@@ -23,6 +25,14 @@ int HDMC::setParticles(int num, double packFrac, int disp, VecF<double> dispPara
     phi=packFrac;
     dispersity=disp;
     dispersityParams=dispParams;
+    if(dispersity==1){//monodisperse neglect particle types
+        nA=0;
+        nB=0;
+    }
+    else if(dispersity==2){//bidisperse utilise particle types
+        nA=nearbyint(n*dispParams[2]);
+        nB=n-nA;
+    }
 
     return 0;
 }
@@ -139,13 +149,19 @@ int HDMC::initialiseConfiguration(Logfile &logfile) {
     r=VecF<double>(n);
 
     //Calculate simulation cell parameters
-    double area=(n*M_PI*pow(dispersityParams[0],2))/phi;
+    double area;
+    if(dispersity==1) area=(M_PI*n*pow(dispersityParams[0],2))/phi;
+    else if(dispersity==2) area=M_PI*(nA*pow(dispersityParams[0],2)+nB*pow(dispersityParams[1],2))/phi;
     cellLen=sqrt(area);
     rCellLen=1.0/cellLen;
     cellLen_2=cellLen/2.0;
 
     //Generate particle radii
     if(dispersity==1) r=dispersityParams[0];
+    else if(dispersity==2){
+        for(int i=0; i<nA; ++i) r[i]=dispersityParams[0];
+        for(int i=nA; i<n; ++i) r[i]=dispersityParams[1];
+    }
 
     //Generate initial configuration
     bool resolved=false;
@@ -601,8 +617,18 @@ void HDMC::writeXYZ(OutputFile &xyzFile) {
 
     xyzFile.write(n);
     xyzFile.write("");
-    for(int i=0; i<n; ++i){
-        xyzFile.write("Ar "+to_string(x[i])+" "+to_string(y[i])+" 0.0");
+    if(dispersity==1){
+        for(int i=0; i<n; ++i){
+            xyzFile.write("Ar "+to_string(x[i])+" "+to_string(y[i])+" 0.0");
+        }
+    }
+    else if(dispersity==2){
+        for(int i=0; i<nA; ++i){
+            xyzFile.write("O "+to_string(x[i])+" "+to_string(y[i])+" 0.0");
+        }
+        for(int i=nA; i<n; ++i){
+            xyzFile.write("S "+to_string(x[i])+" "+to_string(y[i])+" 0.0");
+        }
     }
 }
 
