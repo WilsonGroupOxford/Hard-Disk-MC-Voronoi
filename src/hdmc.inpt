@@ -4,7 +4,7 @@ Particle Parameters
 100     number of particles
 bi mono    particle dispersity (mono,bi,poly)
 1.0 2.0 0.8     dispersity parameters (radius;radius1,radius2,proportion1;...)
-add     particle interactions (add,nonadd)
+nonadd     particle interactions (add,nonadd)
 0.5     total packing fraction
 ---------------------------------------
 Simulation Parameters

@@ -61,7 +61,7 @@ int main(int argc, char **argv) {
         intCode=0;
         logfile.write("Particle interactions: additive");
     }
-    else if(interaction.substr(0,3)=="nonadd"){
+    else if(interaction.substr(0,6)=="nonadd"){
         intCode=1;
         logfile.write("Particle interactions: non-additive");
     }

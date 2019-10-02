@@ -278,6 +278,9 @@ inline int HDMC::mcCycle() {
     if(interaction==0){
         for(int i=0; i<n; ++i) mcAdditiveMove(accCount);
     }
+    else if(interaction==1){
+        for(int i=0; i<n; ++i) mcNonAdditiveMove(accCount);
+    }
 
     return accCount;
 }
@@ -381,6 +384,124 @@ inline void HDMC::mcAdditiveMove(int &counter) {
                 dy-=cellLen*nearbyint(dy*rCellLen);
                 dSq=dx*dx+dy*dy;
                 rSq=pow((rJ+r[i]),2);
+                if(dSq<rSq && i!=pI && i!=pJ){
+                    accept=false;
+                    break;
+                }
+            }
+        }
+
+        if(accept){
+            x[pI]=xI;
+            y[pI]=yI;
+            r[pI]=rI;
+            x[pJ]=xJ;
+            y[pJ]=yJ;
+            r[pJ]=rJ;
+            ++counter;
+        }
+    }
+}
+
+
+inline void HDMC::mcNonAdditiveMove(int &counter) {
+    //Single Monte Carlo move
+
+    //Choose random particle and get position and radius
+    int pI=randParticle(mtGen);
+    double xI=x[pI];
+    double yI=y[pI];
+    double rI=r[pI];
+
+    //Perform move
+    if(rand01(mtGen)<transProb){
+        //Translation move
+
+        //Apply translation
+        xI+=transDelta*(2*rand01(mtGen)-1);
+        yI+=transDelta*(2*rand01(mtGen)-1);
+        xI-=cellLen*nearbyint(xI*rCellLen);
+        yI-=cellLen*nearbyint(yI*rCellLen);
+
+        //Check for overlap with other particles
+        double dx,dy,dSq,rSq;
+        bool accept=true;
+        for(int i=0; i<n; ++i){
+            dx=xI-x[i];
+            dy=yI-y[i];
+            dx-=cellLen*nearbyint(dx*rCellLen);
+            dy-=cellLen*nearbyint(dy*rCellLen);
+            dSq=dx*dx+dy*dy;
+            rSq=4*rI*r[i];
+            if(dSq<rSq && i!=pI){
+                accept=false;
+                break;
+            }
+        }
+
+        if(accept){
+            x[pI]=xI;
+            y[pI]=yI;
+            ++counter;
+        }
+    }
+    else{
+        //Swap move
+
+        //Choose second random particle
+        int pJ=pI;
+        while(pI==pJ) pJ=randParticle(mtGen);
+
+        //Swap coordinates and radii
+        double xJ=xI;
+        double yJ=yI;
+        double rJ=rI;
+        xI=x[pJ];
+        yI=y[pJ];
+        rI=r[pJ];
+
+        //Apply translations
+        xI+=transDelta*(2*rand01(mtGen)-1);
+        yI+=transDelta*(2*rand01(mtGen)-1);
+        xI-=cellLen*nearbyint(xI*rCellLen);
+        yI-=cellLen*nearbyint(yI*rCellLen);
+        xJ+=transDelta*(2*rand01(mtGen)-1);
+        yJ+=transDelta*(2*rand01(mtGen)-1);
+        xJ-=cellLen*nearbyint(xJ*rCellLen);
+        yJ-=cellLen*nearbyint(yJ*rCellLen);
+
+        //Check for overlap with other particles
+        double dx,dy,dSq,rSq;
+        bool accept=true;
+        dx=xI-xJ;
+        dy=yI-yJ;
+        dx-=cellLen*nearbyint(dx*rCellLen);
+        dy-=cellLen*nearbyint(dy*rCellLen);
+        dSq=dx*dx+dy*dy;
+        rSq=4*rI*rJ;
+        if(dSq<rSq) accept=false;
+        if(accept){
+            for(int i=0; i<n; ++i){
+                dx=xI-x[i];
+                dy=yI-y[i];
+                dx-=cellLen*nearbyint(dx*rCellLen);
+                dy-=cellLen*nearbyint(dy*rCellLen);
+                dSq=dx*dx+dy*dy;
+                rSq=4*rI*r[i];
+                if(dSq<rSq && i!=pI && i!=pJ){
+                    accept=false;
+                    break;
+                }
+            }
+        }
+        if(accept){
+            for(int i=0; i<n; ++i){
+                dx=xJ-x[i];
+                dy=yJ-y[i];
+                dx-=cellLen*nearbyint(dx*rCellLen);
+                dy-=cellLen*nearbyint(dy*rCellLen);
+                dSq=dx*dx+dy*dy;
+                rSq=4*rJ*r[i];
                 if(dSq<rSq && i!=pI && i!=pJ){
                     accept=false;
                     break;

@@ -71,6 +71,7 @@ public:
     int optimalDelta(double &deltaMin, double &deltaMax, double &accProb); //find optimal translational delta
     int mcCycle(); //set of n-particle Monte Carlo moves
     void mcAdditiveMove(int &counter); //single Monte Carlo move with additive distances
+    void mcNonAdditiveMove(int &counter); //single Monte Carlo move with non-additive distances
     void writeXYZ(OutputFile &xyzFile); //write configuration to xyz file
     void writeAnalysis(Logfile &logfile, OutputFile &vorFile, OutputFile &radFile); //write analysis results to file
 };
