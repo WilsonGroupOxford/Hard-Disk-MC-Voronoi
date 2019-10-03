@@ -26,7 +26,7 @@ int HDMC::setParticles(int num, double packFrac, int disp, VecF<double> dispPara
     dispersity=disp;
     dispersityParams=dispParams;
     if(dispersity==1){//monodisperse neglect particle types
-        nA=0;
+        nA=n;
         nB=0;
     }
     else if(dispersity==2){//bidisperse utilise particle types
@@ -125,12 +125,14 @@ int HDMC::initAnalysis() {
 
     //Voronoi distributions
     if(vorCalc){
-        vorSizes=VecF<int>(maxVertices);
+        vorSizesA=VecF<int>(maxVertices);
+        vorSizesB=VecF<int>(maxVertices);
         vorAdjs=VecF< VecF<int> >(maxVertices);
         for(int i=0; i<maxVertices; ++i) vorAdjs[i]=VecF<int>(maxVertices);
     }
     if(radCalc){
-        radSizes=VecF<int>(maxVertices);
+        radSizesA=VecF<int>(maxVertices);
+        radSizesB=VecF<int>(maxVertices);
         radAdjs=VecF< VecF<int> >(maxVertices);
         for(int i=0; i<maxVertices; ++i) radAdjs[i]=VecF<int>(maxVertices);
     }
@@ -146,12 +148,14 @@ int HDMC::initialiseConfiguration(Logfile &logfile) {
     //Generate initial particle positions
 
     logfile.write("Generating Initial Configuration");
+    cout<<"Generating Initial Configuration"<<endl;
     ++logfile.currIndent;
 
     //Allocate vectors
     x=VecF<double>(n);
     y=VecF<double>(n);
     r=VecF<double>(n);
+    w=VecF<double>(n);
 
     //Calculate simulation cell parameters
     double area;
@@ -161,11 +165,31 @@ int HDMC::initialiseConfiguration(Logfile &logfile) {
     rCellLen=1.0/cellLen;
     cellLen_2=cellLen/2.0;
 
-    //Generate particle radii
-    if(dispersity==1) r=dispersityParams[0];
+    //Generate particle radii and weights
+    if(dispersity==1){
+        r=dispersityParams[0];
+        w=dispersityParams[0];
+    }
     else if(dispersity==2){
-        for(int i=0; i<nA; ++i) r[i]=dispersityParams[0];
-        for(int i=nA; i<n; ++i) r[i]=dispersityParams[1];
+        double rA,rB,wA,wB;
+        rA=dispersityParams[0];
+        rB=dispersityParams[1];
+        if(interaction==0){
+            wA=rA;
+            wB=rB;
+        }
+        else if(interaction==1){
+            wA = 2 * rA * sqrt(rA * rB) / (rA + rB);
+            wB = 2 * sqrt(rA * rB) * (1 - rA / (rA + rB));
+        }
+        for(int i=0; i<nA; ++i){
+            r[i]=rA;
+            w[i]=wA;
+        }
+        for(int i=nA; i<n; ++i){
+            r[i]=rB;
+            w[i]=wB;
+        }
     }
 
     //Generate initial configuration
@@ -174,6 +198,7 @@ int HDMC::initialiseConfiguration(Logfile &logfile) {
         generateRandomPositions();
         resolved=resolvePositions();
         logfile.write("Attempt "+to_string(i)+" successful:",resolved);
+        cout<<"Attempt "+to_string(i)+" successful: "<<resolved<<endl;
         if(resolved) break;
     }
 
@@ -530,6 +555,7 @@ void HDMC::equilibration(Logfile &logfile, OutputFile &xyzFile) {
 
     //Header
     logfile.write("Equilibration Monte Carlo");
+    cout<<"Equilibration"<<endl;
     ++logfile.currIndent;
 
     //Determine ideal translation delta
@@ -578,7 +604,10 @@ void HDMC::equilibration(Logfile &logfile, OutputFile &xyzFile) {
     int accCount=0;
     for (int i = 1; i<=eqCycles; ++i) {
         accCount+=mcCycle();
-        if(i%logMoves==0) logfile.write("Moves and acceptance:",i,double(accCount)/(i*n));
+        if(i%logMoves==0){
+            logfile.write("Move cycles and acceptance:",i,double(accCount)/(i*n));
+            cout<<"Move cycles and acceptance: "<<i<<" "<<double(accCount)/(i*n)<<endl;
+        }
     }
     logfile.currIndent-=2;
     logfile.separator();
@@ -640,12 +669,16 @@ void HDMC::production(Logfile &logfile, OutputFile &xyzFile, OutputFile &vorFile
 
     //Production cycles
     logfile.write("Production Monte Carlo");
+    cout<<"Production"<<endl;
     ++logfile.currIndent;
     int logMoves=prodCycles/100;
     int accCount=0;
     for (int i = 1; i<=prodCycles; ++i) {
         accCount+=mcCycle();
-        if(i%logMoves==0) logfile.write("Moves and acceptance:",i,double(accCount)/(i*n));
+        if(i%logMoves==0){
+            logfile.write("Move cycles and acceptance:",i,double(accCount)/(i*n));
+            cout<<"Move cycles and acceptance: "<<i<<" "<<double(accCount)/(i*n)<<endl;
+        }
         if(xyzWrite && i%xyzWriteFreq==0) writeXYZ(xyzFile);
         if(i%analysisFreq==0) analyseConfiguration(vorFile,radFile);
     }
@@ -662,6 +695,7 @@ void HDMC::analyseConfiguration(OutputFile &vorFile, OutputFile &radFile) {
 
     if(rdfCalc) calculateRDF();
     if(vorCalc) calculateVoronoi(vorFile);
+    if(radCalc) calculateRadical(radFile);
 
     ++analysisConfigs;
 }
@@ -751,19 +785,51 @@ void HDMC::calculateVoronoi(OutputFile &vorFile) {
     //Calculate Voronoi and analyse
 
     //Make voronoi and calculate cell sizes and neighbours
-    VecF<int> cellSizeDist;
+    VecF<int> cellSizeDistA,cellSizeDistB;
     VecF<VecF<int> > cellAdjDist;
-    Voronoi vor(x, y, r, cellLen_2, false);
-    vor.analyse(maxVertices, cellSizeDist, cellAdjDist);
+    Voronoi vor(x, y, r, cellLen_2, nA, false);
+    vor.analyse(maxVertices, cellSizeDistA, cellSizeDistB, cellAdjDist);
 
     //Add results to global results
-    vorSizes += cellSizeDist;
+    vorSizesA += cellSizeDistA;
+    vorSizesB += cellSizeDistB;
     for (int i = 0; i < cellAdjDist.n; ++i) vorAdjs[i] += cellAdjDist[i];
 
-    //Get network analysis for configuration
-    VecF<double> res = networkAnalysis(cellSizeDist, cellAdjDist);
+    //Get network analysis and write for type A configuration
+    VecF<double> resA = networkAnalysis(cellSizeDistA, cellAdjDist);
+    vorFile.writeRowVector(resA);
 
-    vorFile.writeRowVector(res);
+    //Get network analysis and write for type B configuration
+    if(dispersity==2) {
+        VecF<double> resB = networkAnalysis(cellSizeDistB, cellAdjDist);
+        vorFile.writeRowVector(resB);
+    }
+}
+
+
+void HDMC::calculateRadical(OutputFile &radFile) {
+    //Calculate radical and analyse
+
+    //Make voronoi and calculate cell sizes and neighbours
+    VecF<int> cellSizeDistA,cellSizeDistB;
+    VecF<VecF<int> > cellAdjDist;
+    Voronoi rad(x, y, w, cellLen_2, nA, true);
+    rad.analyse(maxVertices, cellSizeDistA, cellSizeDistB, cellAdjDist);
+
+    //Add results to global results
+    radSizesA += cellSizeDistA;
+    radSizesB += cellSizeDistB;
+    for (int i = 0; i < cellAdjDist.n; ++i) radAdjs[i] += cellAdjDist[i];
+
+    //Get network analysis and write for type A configuration
+    VecF<double> resA = networkAnalysis(cellSizeDistA, cellAdjDist);
+    radFile.writeRowVector(resA);
+
+    //Get network analysis and write for type B configuration
+    if(dispersity==2) {
+        VecF<double> resB = networkAnalysis(cellSizeDistB, cellAdjDist);
+        radFile.writeRowVector(resB);
+    }
 }
 
 
@@ -774,23 +840,26 @@ VecF<double> HDMC::networkAnalysis(VecF<int> &sizes, VecF< VecF<int> > &adjs) {
     VecF<double> res(maxVertices+1);
     double normSize=vSum(sizes);
     for(int i=0; i<sizes.n; ++i) res[i]=sizes[i]/normSize;
-    double k1=0.0,k2=0.0,k3=0.0;
-    for(int i=0; i<sizes.n; ++i){
-        k1+=i*res[i];
-        k2+=i*i*res[i];
-        k3+=i*i*i*res[i];
-    }
 
     //Assortativity
-    double normAdj=0.0;
-    for(int i=0; i<adjs.n; ++i) normAdj+=vSum(adjs[i]);
+    double normAdj;
+    VecF<double> q(adjs.n);
+    for(int i=0; i<adjs.n; ++i) q[i]=vSum(adjs[i]);
+    normAdj=vSum(q);
+    q /= normAdj;
+    double sigA=0.0,sigB=0.0;
+    for(int i=0; i<q.n; ++i){
+        sigA += i*i*q[i];
+        sigB += i*q[i];
+    }
+    sigB = pow(sigB,2);
     double r=0.0;
     for(int i=0; i<adjs.n; ++i){
         for(int j=0; j<adjs.n; ++j){
-            r+=i*j*adjs[i][j];
+            r+=i*j*(adjs[i][j]/normAdj-q[i]*q[j]);
         }
     }
-    r=(k1*k1*r/normAdj-k2*k2)/(k1*k3-k2*k2);
+    r=r/(sigA-sigB);
     res[maxVertices]=r;
 
     return res;
@@ -877,7 +946,21 @@ void HDMC::writeAnalysis(Logfile &logfile, OutputFile &vorFile, OutputFile &radF
 
     //Voronoi
     if(vorCalc){
-        VecF<double> res=networkAnalysis(vorSizes,vorAdjs);
-        vorFile.writeRowVector(res);
+        VecF<double> resA=networkAnalysis(vorSizesA,vorAdjs);
+        vorFile.writeRowVector(resA);
+        if(dispersity==2){
+            VecF<double> resB=networkAnalysis(vorSizesB,vorAdjs);
+            vorFile.writeRowVector(resB);
+        }
+    }
+
+    //Radical
+    if(radCalc){
+        VecF<double> resA=networkAnalysis(radSizesA,radAdjs);
+        radFile.writeRowVector(resA);
+        if(dispersity==2){
+            VecF<double> resB=networkAnalysis(radSizesB,radAdjs);
+            radFile.writeRowVector(resB);
+        }
     }
 }

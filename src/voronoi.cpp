@@ -1,18 +1,20 @@
 #include "voronoi.h"
 
 
-Voronoi::Voronoi(VecF<double> &x, VecF<double> &y, VecF<double> &r, double cellLen_2, bool radical) {
+Voronoi::Voronoi(VecF<double> &x, VecF<double> &y, VecF<double> &w, double cellLen_2, int numA, bool radical) {
     //Initialise with x,y coordinates and radii
 
     //Make periodic container in xy
     n=x.n;
+    nA=numA;
+    nB=n-nA;
     int blocks=sqrt(n);
     con=make_shared<voro::container_poly>(-cellLen_2,cellLen_2,-cellLen_2,cellLen_2,-cellLen_2,cellLen_2,
             blocks,blocks,1,true,true,false,n);
 
     //Add particles and radii if radical
     if(radical){
-        for(int i=0; i<n; ++i) con->put(i,x[i],y[i],0.0,r[i]);
+        for(int i=0; i<n; ++i) con->put(i,x[i],y[i],0.0,w[i]);
     }
     else{
         for(int i=0; i<n; ++i) con->put(i,x[i],y[i],0.0,0.0);
@@ -20,7 +22,7 @@ Voronoi::Voronoi(VecF<double> &x, VecF<double> &y, VecF<double> &r, double cellL
 }
 
 
-void Voronoi::analyse(int maxSize, VecF<int> &cellSizeDist, VecF< VecF<int> > &cellAdjDist) {
+void Voronoi::analyse(int maxSize, VecF<int> &cellSizeDistA, VecF<int> &cellSizeDistB, VecF< VecF<int> > &cellAdjDist) {
     //Analyse Voronoi cell sizes and adjacencies
 
     //Compute cell neighbours
@@ -31,8 +33,10 @@ void Voronoi::analyse(int maxSize, VecF<int> &cellSizeDist, VecF< VecF<int> > &c
     for(int i=0; i<n; ++i){
         cellSizes[i]=cellNbs[i].n;
     }
-    cellSizeDist=VecF<int>(maxSize);
-    for(int i=0; i<n; ++i) ++cellSizeDist[cellSizes[i]];
+    cellSizeDistA=VecF<int>(maxSize);
+    cellSizeDistB=VecF<int>(maxSize);
+    for(int i=0; i<nA; ++i) ++cellSizeDistA[cellSizes[i]];
+    for(int i=nA; i<n; ++i) ++cellSizeDistB[cellSizes[i]];
 
     //Calculate cell adjacencies distribution
     cellAdjDist=VecF< VecF<int> >(maxSize);

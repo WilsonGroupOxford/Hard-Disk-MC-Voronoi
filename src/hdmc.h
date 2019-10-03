@@ -26,7 +26,7 @@ public:
     VecF<double> dispersityParams; //dispersity parameters
     double phi; //packing fraction
     double cellLen,rCellLen,cellLen_2; //cell length, reciprocal and half
-    VecF<double> x,y,r; //particle x coords, y coords and radii
+    VecF<double> x,y,r,w; //particle x coords, y coords, radii and weights for radical voronoi
 
     //Random number generation
     mt19937 mtGen; //mersenne twister random generator
@@ -47,7 +47,7 @@ public:
     double rdfDelta; //RDF bin width
     VecF<int> rdfHist,prdfHistAA,prdfHistAB,prdfHistBB; //RDF histogram
     int maxVertices; //set maximum on number of vertices
-    VecF<int> vorSizes,radSizes; //voronoi/radical cell sizes
+    VecF<int> vorSizesA,vorSizesB,radSizesA,radSizesB; //voronoi/radical cell sizes
     VecF< VecF<int> > vorAdjs,radAdjs; //voronoi/radical cell size adjacencies
 
     //Constructor and setters
@@ -67,6 +67,7 @@ public:
     void analyseConfiguration(OutputFile &vorFile, OutputFile &radFile); //analyse current configuration
     void calculateRDF(); //calculate RDF for current configuration
     void calculateVoronoi(OutputFile &vorFile); //calculate Voronoi and analyse
+    void calculateRadical(OutputFile &radFile); //calculate Radical Voronoi and analyse
     VecF<double> networkAnalysis(VecF<int> &sizes, VecF< VecF<int> > &adjs); //network analysis of sizes
     int optimalDelta(double &deltaMin, double &deltaMax, double &accProb); //find optimal translational delta
     int mcCycle(); //set of n-particle Monte Carlo moves

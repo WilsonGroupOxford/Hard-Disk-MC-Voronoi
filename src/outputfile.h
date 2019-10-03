@@ -6,6 +6,7 @@
 #include <fstream>
 #include <chrono>
 #include <iomanip>
+#include <stdexcept>
 
 using namespace std;
 
