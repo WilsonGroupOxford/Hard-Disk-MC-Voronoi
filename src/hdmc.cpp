@@ -252,17 +252,23 @@ bool HDMC::resolvePositions() {
 
     //Generate repulsive epsilon parameters
     VecF<double> repParams(2*nReps);
-    for(int i=0, j=1; i<2*nReps; i+=2, j+=2) repParams[j]=1.0;
+    for(int i=0, j=1; i<2*nReps; i+=2, j+=2) repParams[j]=0.001;
 
     //Set up potential model and optimiser
     HLJ2DP potModel(cellLen, cellLen);
-    SteepestDescentArmijoMultiDim<HLJ2DP> optimiser(10000,0.5,1e-12);
+    SteepestDescentArmijoMultiDim<HLJ2DP> optimiser(1000,0.5,1e-12);
 
     //Increment radii and minimise iteratively
-    for(int k=1; k<=101; ++k){
-        for(int i=0,j=1; i<2*nReps; i+=2, j+=2) repParams[i]=pow(k*0.01*(r[repPairs[i]]+r[repPairs[j]]),2);
+    int swellSteps=100; //number of steps to swell particles
+    double swellFactor=1.0/swellSteps; //amount to swell particles by each step
+    double overSwell=0.01; //amount to over-swell by
+    OutputFile xyzFile("swell.xyz");
+    for(int k=0; k<=swellSteps; ++k){
+        cout<<"Swelling particles step: "<<k<<endl;
+        for(int i=0,j=1; i<2*nReps; i+=2, j+=2) repParams[i]=pow((k*swellFactor+overSwell)*(r[repPairs[i]]+r[repPairs[j]]),2);
         potModel.setRepulsions(repPairs,repParams);
         optimiser(potModel,xy);
+        writeXYZ(xyzFile);
     }
 
     //Update coordinates
@@ -362,10 +368,9 @@ inline void HDMC::mcAdditiveMove(int &counter) {
         //Swap coordinates and radii
         double xJ=xI;
         double yJ=yI;
-        double rJ=rI;
+        double rJ=r[pJ];
         xI=x[pJ];
         yI=y[pJ];
-        rI=r[pJ];
 
         //Apply translations
         xI+=transDelta*(2*rand01(mtGen)-1);
@@ -419,10 +424,8 @@ inline void HDMC::mcAdditiveMove(int &counter) {
         if(accept){
             x[pI]=xI;
             y[pI]=yI;
-            r[pI]=rI;
             x[pJ]=xJ;
             y[pJ]=yJ;
-            r[pJ]=rJ;
             ++counter;
         }
     }
@@ -480,10 +483,9 @@ inline void HDMC::mcNonAdditiveMove(int &counter) {
         //Swap coordinates and radii
         double xJ=xI;
         double yJ=yI;
-        double rJ=rI;
+        double rJ=r[pJ];
         xI=x[pJ];
         yI=y[pJ];
-        rI=r[pJ];
 
         //Apply translations
         xI+=transDelta*(2*rand01(mtGen)-1);
@@ -537,10 +539,8 @@ inline void HDMC::mcNonAdditiveMove(int &counter) {
         if(accept){
             x[pI]=xI;
             y[pI]=yI;
-            r[pI]=rI;
             x[pJ]=xJ;
             y[pJ]=yJ;
-            r[pJ]=rJ;
             ++counter;
         }
     }
