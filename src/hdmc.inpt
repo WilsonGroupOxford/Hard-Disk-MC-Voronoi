@@ -4,14 +4,15 @@ Particle Parameters
 100     number of particles
 bi  particle dispersity (mono,bi,poly)
 1.0 2.0 0.5     dispersity parameters (radius;radius1,radius2,proportion1;...)
-nonadd     particle interactions (add,nonadd)
-0.5     total packing fraction
+add     particle interactions (add,nonadd)
+0.65     total packing fraction
 ---------------------------------------
 Simulation Parameters
 0       random seed
+2.5        rsa maximum interations (particles^n)
 100    equilibration moves per particle
 100    production moves per particle
-1.0     swap probability
+0.1     swap probability
 0.5     target acceptance probability
 ---------------------------------------
 Analysis and Output

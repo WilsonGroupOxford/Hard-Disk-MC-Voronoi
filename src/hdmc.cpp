@@ -144,7 +144,7 @@ int HDMC::initAnalysis() {
 //---------- INITIAL CONFIGURATION --------
 
 
-int HDMC::initialiseConfiguration(Logfile &logfile) {
+int HDMC::initialiseConfiguration(Logfile &logfile, double maxIt) {
     //Generate initial particle positions
 
     logfile.write("Generating Initial Configuration");
@@ -193,17 +193,18 @@ int HDMC::initialiseConfiguration(Logfile &logfile) {
     }
 
     //Generate initial configuration
-    bool resolved=false;
-    for(int i=0; i<100; ++i){
-        generateRandomPositions();
-        resolved=resolvePositions();
-        logfile.write("Attempt "+to_string(i)+" successful:",resolved);
-        cout<<"Attempt "+to_string(i)+" successful: "<<resolved<<endl;
-        if(resolved) break;
+    bool success;
+    int attempt=1;
+    for(;;){
+        success=rsaPositions(maxIt);
+        logfile.write("Attempt "+to_string(attempt)+" successful:",success);
+        cout<<"Attempt "+to_string(attempt)+" successful: "<<success<<endl;
+        if(success) break;
+        ++attempt;
     }
 
     //Exit if cannot generate
-    if(!resolved) logfile.criticalError("Could not generate starting configuration");
+    if(!success) logfile.criticalError("Could not generate starting configuration");
 
     //Initialise analysis tools here as require cell length
     initAnalysis();
@@ -211,7 +212,99 @@ int HDMC::initialiseConfiguration(Logfile &logfile) {
     --logfile.currIndent;
     logfile.separator();
 
-    return !resolved;
+    return !success;
+}
+
+
+bool HDMC::rsaPositions(double maxIt) {
+    //Generate random particle positions using Random Sequential Adsorption algorithm
+
+    //Get sort of radii positions - largest to smallest
+    bool success=true;
+    VecF<int> sort=vArgSort(r,true);
+
+    //Add random particles without overlap
+    int maxIterations=pow(n,maxIt);
+    randomPosition(x[sort[0]],y[sort[0]]);
+    int added=1,ii,jj,iterations=0;
+    double xx,yy,rr,dx,dy,dSq,rSq;
+    bool accept;
+    if(interaction==0){
+        while(added<n){
+            ii=sort[added];
+            randomPosition(xx,yy);
+            rr=r[ii];
+            accept=true;
+            for(int j=0; j<added; ++j){
+                jj=sort[j];
+                dx=xx-x[jj];
+                dy=yy-y[jj];
+                dx-=cellLen*nearbyint(dx*rCellLen);
+                dy-=cellLen*nearbyint(dy*rCellLen);
+                dSq=dx*dx+dy*dy;
+                rSq=pow((rr+r[jj]),2);
+                if(dSq<rSq){
+                    accept=false;
+                    break;
+                }
+            }
+            if(accept){
+                x[ii]=xx;
+                y[ii]=yy;
+                ++added;
+                cout<<"Particles placed: "<<added<<endl;
+            }
+            ++iterations;
+            if(iterations==maxIterations){
+                success=false;
+                break;
+            }
+        }
+    }
+    else if(interaction==1){
+        while(added<n){
+            ii=sort[added];
+            randomPosition(xx,yy);
+            rr=r[ii];
+            accept=true;
+            for(int j=0; j<added; ++j){
+                jj=sort[j];
+                dx=xx-x[jj];
+                dy=yy-y[jj];
+                dx-=cellLen*nearbyint(dx*rCellLen);
+                dy-=cellLen*nearbyint(dy*rCellLen);
+                dSq=dx*dx+dy*dy;
+                rSq=4*rr*r[jj];
+                if(dSq<rSq){
+                    accept=false;
+                    break;
+                }
+            }
+            if(accept){
+                x[ii]=xx;
+                y[ii]=yy;
+                ++added;
+                cout<<"Particles placed: "<<added<<endl;
+            }
+            ++iterations;
+            if(iterations==maxIterations){
+                success=false;
+                break;
+            }
+        }
+    }
+
+    return success;
+}
+
+
+inline void HDMC::randomPosition(double &xx, double &yy) {
+    //Generate random particle position inside periodic box
+
+    xx=rand01(mtGen)*cellLen;
+    yy=rand01(mtGen)*cellLen;
+    xx-=cellLen*nearbyint(xx*rCellLen);
+    yy-=cellLen*nearbyint(yy*rCellLen);
 }
 
 

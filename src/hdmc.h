@@ -58,8 +58,10 @@ public:
     int setAnalysis(string path, int xyzFreq, int anFreq, int rdf, double rdfDel, int vor); //set analysis parameters
 
     //Member functions
-    int initialiseConfiguration(Logfile &logfile); //generate initial particle positions
+    int initialiseConfiguration(Logfile &logfile, double maxIt); //generate initial particle positions
+    bool rsaPositions(double maxIt); //generate positions using rsa algorithm
     void generateRandomPositions(); //generate random particle positions
+    void randomPosition(double &xx, double &yy); //generate random particle position
     bool resolvePositions(); //resolve overlaps using steepest descent minimisation
     int initAnalysis(); //initialise analysis tools
     void equilibration(Logfile &logfile, OutputFile &xyzFile); //equilibration Monte Carlo

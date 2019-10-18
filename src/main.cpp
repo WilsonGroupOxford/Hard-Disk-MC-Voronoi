@@ -75,10 +75,14 @@ int main(int argc, char **argv) {
     for(int i=0; i<2; ++i) getline(inputFile,skip);
     int randomSeed; //seed for random number generator
     int eqCycles, prodCycles; //number of equilibration and production cycles
+    double rsaIt; //power for maximum iteractions in rsa algorithm
     double swapProb,accTarget; //swap probability and acceptance probability target
     getline(inputFile,line);
     istringstream(line)>>randomSeed;
     logfile.write("Random seed:",randomSeed);
+    getline(inputFile,line);
+    istringstream(line)>>rsaIt;
+    logfile.write("RSA maximum iterations:",rsaIt);
     getline(inputFile,line);
     istringstream(line)>>eqCycles;
     logfile.write("Equilibration moves per particle:",eqCycles);
@@ -141,7 +145,7 @@ int main(int argc, char **argv) {
     OutputFile radFile(outputPrefix+"_rad.dat");
 
     //Run Monte Carlo simulation (xyz written only for production atm)
-    simulation.initialiseConfiguration(logfile);
+    simulation.initialiseConfiguration(logfile,rsaIt);
     simulation.equilibration(logfile,xyzFile);
     simulation.production(logfile,xyzFile,vorFile,radFile);
 

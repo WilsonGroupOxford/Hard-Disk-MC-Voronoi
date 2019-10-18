@@ -102,6 +102,55 @@ T vSort(T vec){
     return sVec;
 }
 
+//Sort vector using heapsort algorithm (see numerical recipes) giving sort positions
+template <typename T>
+VecF<int> vArgSort(T vec, bool reverse=false){
+    int n = vec.n;
+    int i=n/2, parent, child;
+    auto v=vec[0];
+    int w=0;
+    T sVec(vec);
+    VecF<int> aVec(vec.n);
+    for(int i=0; i<aVec.n; ++i) aVec[i]=i;
+    if(n<2) return aVec;
+
+    for(;;){
+        if(i>0){
+            i--;
+            v=sVec[i];
+            w=aVec[i];
+        }
+        else{
+            n--;
+            if(n==0) break;
+            v=sVec[n];
+            w=aVec[n];
+            sVec[n]=sVec[0];
+            aVec[n]=aVec[0];
+        }
+
+        parent=i;
+        child=i*2+1;
+        while(child<n){
+            if(child+1<n && sVec[child+1]>sVec[child]) ++child;
+            if(sVec[child]>v){
+                sVec[parent] = sVec[child];
+                aVec[parent] = aVec[child];
+                parent=child;
+                child=parent*2+1;
+            }
+            else break;
+        }
+        sVec[parent]=v;
+        aVec[parent]=w;
+    }
+    if(reverse){
+        for(int i=0, j=aVec.n-1; i<aVec.n; ++i,--j) sVec[i]=aVec[j];
+        for(int i=0; i<aVec.n; ++i) aVec[i]=sVec[i];
+    }
+    return aVec;
+}
+
 //Find common values between vectors
 template <typename T>
 T vCommonValues(T vecA, T vecB){
