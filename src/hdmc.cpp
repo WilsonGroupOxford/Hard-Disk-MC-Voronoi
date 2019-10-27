@@ -131,6 +131,8 @@ int HDMC::initAnalysis() {
         for(int i=0; i<maxVertices; ++i) vorAdjs[i]=VecF<int>(maxVertices);
         vorAreasA=VecF<double>(maxVertices+1);
         vorAreasB=VecF<double>(maxVertices+1);
+        vorNNCount=VecF<int>(3);
+        vorNNSep=VecF<double>(3);
     }
     if(radCalc){
         radSizesA=VecF<int>(maxVertices);
@@ -139,6 +141,8 @@ int HDMC::initAnalysis() {
         for(int i=0; i<maxVertices; ++i) radAdjs[i]=VecF<int>(maxVertices);
         radAreasA=VecF<double>(maxVertices+1);
         radAreasB=VecF<double>(maxVertices+1);
+        radNNCount=VecF<int>(3);
+        radNNSep=VecF<double>(3);
     }
 
     return 0;
@@ -882,17 +886,20 @@ void HDMC::calculateVoronoi(OutputFile &vorFile) {
     //Calculate Voronoi and analyse
 
     //Make voronoi and calculate cell sizes and neighbours
-    VecF<int> cellSizeDistA,cellSizeDistB;
+    VecF<int> cellSizeDistA,cellSizeDistB,nnCount;
     VecF<VecF<int> > cellAdjDist;
-    VecF<double> cellAreaA,cellAreaB;
+    VecF<double> cellAreaA,cellAreaB,nnSep;
     Voronoi vor(x, y, r, cellLen_2, nA, false);
     vor.analyse(maxVertices, cellSizeDistA, cellSizeDistB, cellAdjDist, cellAreaA, cellAreaB);
+    vor.nnDistances(x,y,cellLen,rCellLen,nnSep,nnCount);
 
     //Add results to global results
     vorSizesA += cellSizeDistA;
     vorSizesB += cellSizeDistB;
     vorAreasA += cellAreaA;
     vorAreasB += cellAreaB;
+    vorNNCount += nnCount;
+    vorNNSep += nnSep;
     for (int i = 0; i < cellAdjDist.n; ++i) vorAdjs[i] += cellAdjDist[i];
 
     //Get network analysis and write for type A configuration
@@ -908,6 +915,14 @@ void HDMC::calculateVoronoi(OutputFile &vorFile) {
         vorFile.writeRowVector(resB);
         vorFile.writeRowVector(cellAreaB);
     }
+
+    //Write nearest neighbour distances and frequency
+    VecF<double> nn(6);
+    for(int i=0; i<3; ++i){
+        if(nnCount[i]>0) nn[i]=nnSep[i]/nnCount[i];
+        nn[3+i]=nnCount[i];
+    }
+    vorFile.writeRowVector(nn);
 }
 
 
@@ -915,18 +930,21 @@ void HDMC::calculateRadical(OutputFile &radFile) {
     //Calculate radical and analyse
 
     //Make voronoi and calculate cell sizes and neighbours
-    VecF<int> cellSizeDistA,cellSizeDistB;
+    VecF<int> cellSizeDistA,cellSizeDistB,nnCount;
     VecF<VecF<int> > cellAdjDist;
-    VecF<double> cellAreaA,cellAreaB;
+    VecF<double> cellAreaA,cellAreaB,nnSep;
     Voronoi rad(x, y, w, cellLen_2, nA, true);
     rad.analyse(maxVertices, cellSizeDistA, cellSizeDistB, cellAdjDist, cellAreaA, cellAreaB);
+    rad.nnDistances(x,y,cellLen,rCellLen,nnSep,nnCount);
 
     //Add results to global results
     radSizesA += cellSizeDistA;
     radSizesB += cellSizeDistB;
-    for (int i = 0; i < cellAdjDist.n; ++i) radAdjs[i] += cellAdjDist[i];
     radAreasA += cellAreaA;
     radAreasB += cellAreaB;
+    radNNCount += nnCount;
+    radNNSep += nnSep;
+    for (int i = 0; i < cellAdjDist.n; ++i) radAdjs[i] += cellAdjDist[i];
 
     //Get network analysis and write for type A configuration
     for(int i=0; i<cellSizeDistA.n; ++i) if(cellSizeDistA[i]>0) cellAreaA[i]/=cellSizeDistA[i];
@@ -941,6 +959,14 @@ void HDMC::calculateRadical(OutputFile &radFile) {
         radFile.writeRowVector(resB);
         radFile.writeRowVector(cellAreaB);
     }
+
+    //Write nearest neighbour distances and frequency
+    VecF<double> nn(6);
+    for(int i=0; i<3; ++i){
+        if(nnCount[i]>0) nn[i]=nnSep[i]/nnCount[i];
+        nn[3+i]=nnCount[i];
+    }
+    radFile.writeRowVector(nn);
 }
 
 
@@ -1069,6 +1095,12 @@ void HDMC::writeAnalysis(Logfile &logfile, OutputFile &vorFile, OutputFile &radF
             vorFile.writeRowVector(resB);
             vorFile.writeRowVector(vorAreasB);
         }
+        VecF<double> nn(6);
+        for(int i=0; i<3; ++i){
+            if(vorNNCount[i]>0) nn[i]=vorNNSep[i]/vorNNCount[i];
+            nn[3+i]=double(vorNNCount[i])/analysisConfigs;
+        }
+        vorFile.writeRowVector(nn);
     }
 
     //Radical
@@ -1085,5 +1117,11 @@ void HDMC::writeAnalysis(Logfile &logfile, OutputFile &vorFile, OutputFile &radF
             radFile.writeRowVector(resB);
             radFile.writeRowVector(radAreasB);
         }
+        VecF<double> nn(6);
+        for(int i=0; i<3; ++i){
+            if(radNNCount[i]>0) nn[i]=radNNSep[i]/radNNCount[i];
+            nn[3+i]=double(radNNCount[i])/analysisConfigs;
+        }
+        radFile.writeRowVector(nn);
     }
 }

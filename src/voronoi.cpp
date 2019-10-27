@@ -63,6 +63,30 @@ void Voronoi::analyse(int maxSize, VecF<int> &cellSizeDistA, VecF<int> &cellSize
 }
 
 
+void Voronoi::nnDistances(VecF<double> &x, VecF<double> &y, double cellLen, double rCellLen, VecF<double> &nnSep, VecF<int> &nnCount) {
+    //Calculate nearest neighbour distances
+
+    //Calculate nearest neighbour distances between different cell types
+    nnSep=VecF<double>(3); //A-A, A-B, B-B
+    nnCount=VecF<int>(3);
+    VecF<int> nType(n);
+    for(int i=0; i<nA; ++i) nType[i]=0;
+    for(int i=nA; i<n; ++i) nType[i]=1;
+    double dx,dy,d;
+    for(int i=0; i<n; ++i){
+        for(int j=0; j<cellNbs[i].n; ++j){
+            dx=x[i]-x[cellNbs[i][j]];
+            dy=y[i]-y[cellNbs[i][j]];
+            dx-=cellLen*nearbyint(dx*rCellLen);
+            dy-=cellLen*nearbyint(dy*rCellLen);
+            d=sqrt(dx*dx+dy*dy);
+            ++nnCount[nType[i]+nType[cellNbs[i][j]]];
+            nnSep[nType[i]+nType[cellNbs[i][j]]]+=d;
+        }
+    }
+}
+
+
 void Voronoi::computeCells(int maxSize) {
     //Calculate neighbouring particles for each particle, and area of cells
 

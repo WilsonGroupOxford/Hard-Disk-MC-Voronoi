@@ -50,6 +50,8 @@ public:
     VecF<int> vorSizesA,vorSizesB,radSizesA,radSizesB; //voronoi/radical cell sizes
     VecF< VecF<int> > vorAdjs,radAdjs; //voronoi/radical cell size adjacencies
     VecF<double> vorAreasA,vorAreasB,radAreasA,radAreasB; //voronoi/radical cell areas by size
+    VecF<int> vorNNCount,radNNCount; //voronoi/radical nearest neighbour type count
+    VecF<double> vorNNSep,radNNSep; //voronoi/radical nearest neighbour separations
 
     //Constructor and setters
     HDMC();

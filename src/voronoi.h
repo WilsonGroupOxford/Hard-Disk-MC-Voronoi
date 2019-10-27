@@ -37,6 +37,7 @@ public:
 
     //Member functions
     void analyse(int maxSize, VecF<int> &cellSizeDistA, VecF<int> &cellSizeDistB, VecF< VecF<int> > &cellAdjDist, VecF<double> &cellAreaA, VecF<double> &cellAreaB);
+    void nnDistances(VecF<double> &x, VecF<double> &y, double cellLen, double rCellLen, VecF<double> &nnSep, VecF<int> &nnCount);
 };
 
 
