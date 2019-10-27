@@ -23,10 +23,12 @@ private:
     //Data members
     shared_ptr<voro::container_poly> con;
     int n,nA,nB; //total number of particles and of type A, B
+    double dz; //height of cells
     VecF< VecR<int> > cellNbs; //neighbours of each cell
+    VecF<double> cellAreas; //areas of each cell
 
     //Member functions
-    void computeNeighbours(int maxSize); //find neighbours for each cell
+    void computeCells(int maxSize); //find neighbours for each cell
 
 public:
 
@@ -34,7 +36,7 @@ public:
     Voronoi(VecF<double> &x, VecF<double> &y, VecF<double> &w, double cellLen_2, int numA, bool radical); //2D coordinates and weights, cell info
 
     //Member functions
-    void analyse(int maxSize, VecF<int> &cellSizeDistA, VecF<int> &cellSizeDistB, VecF< VecF<int> > &cellAdjDist);
+    void analyse(int maxSize, VecF<int> &cellSizeDistA, VecF<int> &cellSizeDistB, VecF< VecF<int> > &cellAdjDist, VecF<double> &cellAreaA, VecF<double> &cellAreaB);
 };
 
 

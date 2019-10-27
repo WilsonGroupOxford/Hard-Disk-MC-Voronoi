@@ -9,6 +9,7 @@ Voronoi::Voronoi(VecF<double> &x, VecF<double> &y, VecF<double> &w, double cellL
     nA=numA;
     nB=n-nA;
     int blocks=sqrt(n);
+    dz=cellLen_2*2;
     con=make_shared<voro::container_poly>(-cellLen_2,cellLen_2,-cellLen_2,cellLen_2,-cellLen_2,cellLen_2,
             blocks,blocks,1,true,true,false,n);
 
@@ -22,11 +23,12 @@ Voronoi::Voronoi(VecF<double> &x, VecF<double> &y, VecF<double> &w, double cellL
 }
 
 
-void Voronoi::analyse(int maxSize, VecF<int> &cellSizeDistA, VecF<int> &cellSizeDistB, VecF< VecF<int> > &cellAdjDist) {
+void Voronoi::analyse(int maxSize, VecF<int> &cellSizeDistA, VecF<int> &cellSizeDistB, VecF<VecF<int> > &cellAdjDist,
+                      VecF<double> &cellAreaA, VecF<double> &cellAreaB) {
     //Analyse Voronoi cell sizes and adjacencies
 
     //Compute cell neighbours
-    computeNeighbours(maxSize);
+    computeCells(maxSize);
 
     //Calculate cell sizes and size distribution
     VecF<int> cellSizes(n);
@@ -46,13 +48,23 @@ void Voronoi::analyse(int maxSize, VecF<int> &cellSizeDistA, VecF<int> &cellSize
         for(int j=0; j<cellNbs[i].n; ++j){
             int sizeJ=cellSizes[cellNbs[i][j]];
             ++cellAdjDist[sizeI][sizeJ];
+            //Account for self interactions
+//            if(i==cellNbs[i][j]) ++cellAdjDist[sizeI][sizeJ];
         }
     }
+
+    //Calculate cell size average areas
+    cellAreaA=VecF<double>(maxSize+1);
+    cellAreaB=VecF<double>(maxSize+1);
+    for(int i=0; i<nA; ++i) cellAreaA[cellSizes[i]]+=cellAreas[i];
+    for(int i=nA; i<n; ++i) cellAreaB[cellSizes[i]]+=cellAreas[i];
+    cellAreaA[maxSize]=vSum(cellAreaA);
+    cellAreaB[maxSize]=vSum(cellAreaB);
 }
 
 
-void Voronoi::computeNeighbours(int maxSize) {
-    //Calculate neighbouring particles for each particle
+void Voronoi::computeCells(int maxSize) {
+    //Calculate neighbouring particles for each particle, and area of cells
 
     //Make looper
     voro::c_loop_all looper(*con);
@@ -61,6 +73,7 @@ void Voronoi::computeNeighbours(int maxSize) {
     //Resize neighbour vectors
     cellNbs=VecF< VecR<int> >(n);
     for(int i=0; i<n; ++i) cellNbs[i]=VecR<int>(0,maxSize);
+    cellAreas=VecF<double>(n);
 
     //Loop over each cell and extract neighbour ids
     do{
@@ -74,5 +87,7 @@ void Voronoi::computeNeighbours(int maxSize) {
         }
         cellNbs[id].delValue(-5); //remove z cell boundary
         cellNbs[id].delValue(-6); //remove z cell boundary
+//        for(int i=0; i<cellNbs[id].n; ++i) if(cellNbs[id][i]<0) cellNbs[id][i]=id; //add self interaction
+        cellAreas[id]=cell.volume()/dz;
     } while(looper.inc());
 }

@@ -129,12 +129,16 @@ int HDMC::initAnalysis() {
         vorSizesB=VecF<int>(maxVertices);
         vorAdjs=VecF< VecF<int> >(maxVertices);
         for(int i=0; i<maxVertices; ++i) vorAdjs[i]=VecF<int>(maxVertices);
+        vorAreasA=VecF<double>(maxVertices+1);
+        vorAreasB=VecF<double>(maxVertices+1);
     }
     if(radCalc){
         radSizesA=VecF<int>(maxVertices);
         radSizesB=VecF<int>(maxVertices);
         radAdjs=VecF< VecF<int> >(maxVertices);
         for(int i=0; i<maxVertices; ++i) radAdjs[i]=VecF<int>(maxVertices);
+        radAreasA=VecF<double>(maxVertices+1);
+        radAreasB=VecF<double>(maxVertices+1);
     }
 
     return 0;
@@ -880,22 +884,29 @@ void HDMC::calculateVoronoi(OutputFile &vorFile) {
     //Make voronoi and calculate cell sizes and neighbours
     VecF<int> cellSizeDistA,cellSizeDistB;
     VecF<VecF<int> > cellAdjDist;
+    VecF<double> cellAreaA,cellAreaB;
     Voronoi vor(x, y, r, cellLen_2, nA, false);
-    vor.analyse(maxVertices, cellSizeDistA, cellSizeDistB, cellAdjDist);
+    vor.analyse(maxVertices, cellSizeDistA, cellSizeDistB, cellAdjDist, cellAreaA, cellAreaB);
 
     //Add results to global results
     vorSizesA += cellSizeDistA;
     vorSizesB += cellSizeDistB;
+    vorAreasA += cellAreaA;
+    vorAreasB += cellAreaB;
     for (int i = 0; i < cellAdjDist.n; ++i) vorAdjs[i] += cellAdjDist[i];
 
     //Get network analysis and write for type A configuration
+    for(int i=0; i<cellSizeDistA.n; ++i) if(cellSizeDistA[i]>0) cellAreaA[i]/=cellSizeDistA[i];
     VecF<double> resA = networkAnalysis(cellSizeDistA, cellAdjDist);
     vorFile.writeRowVector(resA);
+    vorFile.writeRowVector(cellAreaA);
 
     //Get network analysis and write for type B configuration
     if(dispersity==2) {
+        for(int i=0; i<cellSizeDistB.n; ++i) if(cellSizeDistB[i]>0) cellAreaB[i]/=cellSizeDistB[i];
         VecF<double> resB = networkAnalysis(cellSizeDistB, cellAdjDist);
         vorFile.writeRowVector(resB);
+        vorFile.writeRowVector(cellAreaB);
     }
 }
 
@@ -906,22 +917,29 @@ void HDMC::calculateRadical(OutputFile &radFile) {
     //Make voronoi and calculate cell sizes and neighbours
     VecF<int> cellSizeDistA,cellSizeDistB;
     VecF<VecF<int> > cellAdjDist;
+    VecF<double> cellAreaA,cellAreaB;
     Voronoi rad(x, y, w, cellLen_2, nA, true);
-    rad.analyse(maxVertices, cellSizeDistA, cellSizeDistB, cellAdjDist);
+    rad.analyse(maxVertices, cellSizeDistA, cellSizeDistB, cellAdjDist, cellAreaA, cellAreaB);
 
     //Add results to global results
     radSizesA += cellSizeDistA;
     radSizesB += cellSizeDistB;
     for (int i = 0; i < cellAdjDist.n; ++i) radAdjs[i] += cellAdjDist[i];
+    radAreasA += cellAreaA;
+    radAreasB += cellAreaB;
 
     //Get network analysis and write for type A configuration
+    for(int i=0; i<cellSizeDistA.n; ++i) if(cellSizeDistA[i]>0) cellAreaA[i]/=cellSizeDistA[i];
     VecF<double> resA = networkAnalysis(cellSizeDistA, cellAdjDist);
     radFile.writeRowVector(resA);
+    radFile.writeRowVector(cellAreaA);
 
     //Get network analysis and write for type B configuration
     if(dispersity==2) {
+        for(int i=0; i<cellSizeDistB.n; ++i) if(cellSizeDistB[i]>0) cellAreaB[i]/=cellSizeDistB[i];
         VecF<double> resB = networkAnalysis(cellSizeDistB, cellAdjDist);
         radFile.writeRowVector(resB);
+        radFile.writeRowVector(cellAreaB);
     }
 }
 
@@ -1039,21 +1057,33 @@ void HDMC::writeAnalysis(Logfile &logfile, OutputFile &vorFile, OutputFile &radF
 
     //Voronoi
     if(vorCalc){
+        for(int i=0; i<vorSizesA.n; ++i) if(vorSizesA[i]>0) vorAreasA[i]/=vorSizesA[i];
+        vorAreasA[vorAreasA.n-1] /= analysisConfigs;
         VecF<double> resA=networkAnalysis(vorSizesA,vorAdjs);
         vorFile.writeRowVector(resA);
+        vorFile.writeRowVector(vorAreasA);
         if(dispersity==2){
+            for(int i=0; i<vorSizesB.n; ++i) if(vorSizesB[i]>0) vorAreasB[i]/=vorSizesB[i];
+            vorAreasB[vorAreasB.n-1] /= analysisConfigs;
             VecF<double> resB=networkAnalysis(vorSizesB,vorAdjs);
             vorFile.writeRowVector(resB);
+            vorFile.writeRowVector(vorAreasB);
         }
     }
 
     //Radical
     if(radCalc){
+        for(int i=0; i<radSizesA.n; ++i) if(radSizesA[i]>0) radAreasA[i]/=radSizesA[i];
+        radAreasA[radAreasA.n-1] /= analysisConfigs;
         VecF<double> resA=networkAnalysis(radSizesA,radAdjs);
         radFile.writeRowVector(resA);
+        radFile.writeRowVector(radAreasA);
         if(dispersity==2){
+            for(int i=0; i<radSizesB.n; ++i) if(radSizesB[i]>0) radAreasB[i]/=radSizesB[i];
+            radAreasB[radAreasB.n-1] /= analysisConfigs;
             VecF<double> resB=networkAnalysis(radSizesB,radAdjs);
             radFile.writeRowVector(resB);
+            radFile.writeRowVector(radAreasB);
         }
     }
 }

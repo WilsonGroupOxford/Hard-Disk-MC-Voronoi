@@ -49,6 +49,7 @@ public:
     int maxVertices; //set maximum on number of vertices
     VecF<int> vorSizesA,vorSizesB,radSizesA,radSizesB; //voronoi/radical cell sizes
     VecF< VecF<int> > vorAdjs,radAdjs; //voronoi/radical cell size adjacencies
+    VecF<double> vorAreasA,vorAreasB,radAreasA,radAreasB; //voronoi/radical cell areas by size
 
     //Constructor and setters
     HDMC();
