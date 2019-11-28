@@ -79,7 +79,7 @@ public:
     void mcAdditiveMove(int &counter); //single Monte Carlo move with additive distances
     void mcNonAdditiveMove(int &counter); //single Monte Carlo move with non-additive distances
     void writeXYZ(OutputFile &xyzFile); //write configuration to xyz file
-    void writeAnalysis(Logfile &logfile, OutputFile &vorFile, OutputFile &radFile); //write analysis results to file
+    void writeAnalysis(Logfile &logfile, OutputFile &vorFile, OutputFile &radFile, OutputFile &diaFile); //write analysis results to file
 };
 
 

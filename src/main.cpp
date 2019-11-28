@@ -53,6 +53,15 @@ int main(int argc, char **argv) {
         dispCode=1;
         logfile.write("Particle radii:",dispParams[0]);
     }
+    else if(disp.substr(0,4)=="poly"){
+        dispParams=VecF<double>(2);
+        getline(inputFile,line);
+        istringstream ss(line);
+        for(int i=0; i<2; ++i) ss>>dispParams[i];
+        dispCode=3;
+        logfile.write("Particle radius mean:",dispParams[0]);
+        logfile.write("Particle radius standard deviation:",dispParams[1]);
+    }
     else if(disp.substr(0,4)=="poly") cout<<"ZZZ"<<endl;
     else logfile.criticalError("Error reading particle dispersity code");
     getline(inputFile,line);
@@ -143,6 +152,7 @@ int main(int argc, char **argv) {
     OutputFile xyzFile(outputPrefix+".xyz");
     OutputFile vorFile(outputPrefix+"_vor.dat");
     OutputFile radFile(outputPrefix+"_rad.dat");
+    OutputFile diaFile(outputPrefix+"_dia.dat");
 
     //Run Monte Carlo simulation (xyz written only for production atm)
     simulation.initialiseConfiguration(logfile,rsaIt);
@@ -150,7 +160,7 @@ int main(int argc, char **argv) {
     simulation.production(logfile,xyzFile,vorFile,radFile);
 
     //Write analysis to files
-    simulation.writeAnalysis(logfile,vorFile,radFile);
+    simulation.writeAnalysis(logfile,vorFile,radFile,diaFile);
 
     return 0;
 }

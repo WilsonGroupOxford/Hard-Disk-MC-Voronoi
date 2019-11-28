@@ -33,6 +33,10 @@ int HDMC::setParticles(int num, double packFrac, int disp, VecF<double> dispPara
         nA=nearbyint(n*dispParams[2]);
         nB=n-nA;
     }
+    else if(dispersity==3){//polydisperse neglect particle types
+        nA=n;
+        nB=0;
+    }
 
     return 0;
 }
@@ -169,6 +173,7 @@ int HDMC::initialiseConfiguration(Logfile &logfile, double maxIt) {
     double area;
     if(dispersity==1) area=(M_PI*n*pow(dispersityParams[0],2))/phi;
     else if(dispersity==2) area=M_PI*(nA*pow(dispersityParams[0],2)+nB*pow(dispersityParams[1],2))/phi;
+    else if(dispersity==3) area=M_PI*(nA*pow(dispersityParams[0],2))/phi;
     cellLen=sqrt(area);
     rCellLen=1.0/cellLen;
     cellLen_2=cellLen/2.0;
@@ -182,14 +187,8 @@ int HDMC::initialiseConfiguration(Logfile &logfile, double maxIt) {
         double rA,rB,wA,wB;
         rA=dispersityParams[0];
         rB=dispersityParams[1];
-        if(interaction==0){
-            wA=rA;
-            wB=rB;
-        }
-        else if(interaction==1){
-            wA = 2 * rA * sqrt(rA * rB) / (rA + rB);
-            wB = 2 * sqrt(rA * rB) * (1 - rA / (rA + rB));
-        }
+        wA=rA;
+        wB=rB;
         for(int i=0; i<nA; ++i){
             r[i]=rA;
             w[i]=wA;
@@ -198,6 +197,19 @@ int HDMC::initialiseConfiguration(Logfile &logfile, double maxIt) {
             r[i]=rB;
             w[i]=wB;
         }
+    }
+    else if(dispersity==3){
+        //Randomly generate radii from gaussian
+        normal_distribution<double> normalDist(dispersityParams[0],dispersityParams[1]);
+        for(int i=0; i<n; ++i){
+            double randR;
+            for(;;){
+                randR=normalDist(mtGen);
+                if(randR>0) break;
+            }
+            r[i]=randR;
+        }
+        w=r;
     }
 
     //Generate initial configuration
@@ -879,6 +891,24 @@ void HDMC::calculateRDF() {
             }
         }
     }
+    if(dispersity==3) {//polydisperse calculate total rdf
+        for (int i = 0; i < n - 1; ++i) {
+            xI = x[i];
+            yI = y[i];
+            for (int j = i + 1; j < n; ++j) {
+                dx = xI - x[j];
+                dy = yI - y[j];
+                dx -= cellLen * nearbyint(dx * rCellLen);
+                dy -= cellLen * nearbyint(dy * rCellLen);
+                dSq = dx * dx + dy * dy;
+                d = sqrt(dSq);
+                if (d < cellLen_2) {
+                    b = floor(d / rdfDelta);
+                    rdfHist[b] += 2;
+                }
+            }
+        }
+    }
 }
 
 
@@ -1009,22 +1039,26 @@ void HDMC::writeXYZ(OutputFile &xyzFile) {
     xyzFile.write(n);
     xyzFile.write("");
     if(dispersity==1){
-        for(int i=0; i<n; ++i){
-            xyzFile.write("Ar "+to_string(x[i])+" "+to_string(y[i])+" 0.0");
-        }
+        for(int i=0; i<n; ++i) xyzFile.write("Ar"+to_string(i)+" "+to_string(x[i])+" "+to_string(y[i])+" 0.0");
     }
     else if(dispersity==2){
-        for(int i=0; i<nA; ++i){
-            xyzFile.write("O "+to_string(x[i])+" "+to_string(y[i])+" 0.0");
+        if(interaction==0){
+            for(int i=0; i<nA; ++i) xyzFile.write("O "+to_string(x[i])+" "+to_string(y[i])+" 0.0");
+            for(int i=nA; i<n; ++i) xyzFile.write("S "+to_string(x[i])+" "+to_string(y[i])+" 0.0");
         }
-        for(int i=nA; i<n; ++i){
-            xyzFile.write("S "+to_string(x[i])+" "+to_string(y[i])+" 0.0");
+        else if(interaction==1){
+            for(int i=0; i<nA; ++i) xyzFile.write("O "+to_string(x[i])+" "+to_string(y[i])+" "+to_string(r[i]));
+            for(int i=nA; i<n; ++i) xyzFile.write("S "+to_string(x[i])+" "+to_string(y[i])+" "+to_string(r[i]));
         }
+    }
+    else if(dispersity==3){
+        if(interaction==0) for(int i=0; i<n; ++i) xyzFile.write("Ar"+to_string(i)+" "+to_string(x[i])+" "+to_string(y[i])+" 0.0");
+        else if(interaction==1) for(int i=0; i<n; ++i) xyzFile.write("Ar"+to_string(i)+" "+to_string(x[i])+" "+to_string(y[i])+" "+to_string(r[i]));
     }
 }
 
 
-void HDMC::writeAnalysis(Logfile &logfile, OutputFile &vorFile, OutputFile &radFile) {
+void HDMC::writeAnalysis(Logfile &logfile, OutputFile &vorFile, OutputFile &radFile, OutputFile &diaFile) {
     //Write analysis results to files
 
     //RDF
@@ -1079,6 +1113,19 @@ void HDMC::writeAnalysis(Logfile &logfile, OutputFile &vorFile, OutputFile &radF
                 rdfFile.writeRowVector(row);
             }
         }
+        else if(dispersity==3){//polydisperse case total rdf only
+            //Copy total rdf
+            for(int i=0; i<rdf.n; ++i) rdf[i]=rdfHist[i];
+            //Normalise if required
+            if(rdfNorm){
+                double norm=n*(n/pow(cellLen,2))*M_PI*analysisConfigs; //n*density*pi*configs
+                for(int i=0; i<rdf.n; ++i){
+                    rdf[i]/=norm*(pow((i+1)*rdfDelta,2)-pow(i*rdfDelta,2));
+                }
+            }
+            //Write
+            for(int i=0; i<rdf.n; ++i) rdfFile.write(bins[i],rdf[i]);
+        }
     }
 
     //Voronoi
@@ -1124,4 +1171,7 @@ void HDMC::writeAnalysis(Logfile &logfile, OutputFile &vorFile, OutputFile &radF
         }
         radFile.writeRowVector(nn);
     }
+
+    //Diameters
+    for(int i=0; i<n; ++i) diaFile.write(2.0*r[i]);
 }
