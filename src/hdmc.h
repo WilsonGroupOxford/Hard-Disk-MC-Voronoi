@@ -41,9 +41,9 @@ public:
 
     //Analysis and output parameters
     string outputPrefix; //output file path and prefix
-    bool xyzWrite,rdfCalc,rdfNorm,vorCalc,radCalc; //flags to write xyz file, calculate and normalise RDF, calculate (radical) Voronoi
-    int xyzWriteFreq, analysisFreq; //frequency of xyz write and analysis
-    int analysisConfigs; //number of analysis configurations
+    bool xyzWrite,vorWrite,rdfCalc,rdfNorm,vorCalc,radCalc; //flags to write xyz/vor file, calculate and normalise RDF, calculate (radical) Voronoi
+    int xyzWriteFreq, vorWriteFreq, analysisFreq; //frequency of xyz/voronoi write and analysis
+    int analysisConfigs, xyzConfigs; //number of analysis/xyz configurations
     double rdfDelta; //RDF bin width
     VecF<int> rdfHist,prdfHistAA,prdfHistAB,prdfHistBB; //RDF histogram
     int maxVertices; //set maximum on number of vertices
@@ -58,7 +58,7 @@ public:
     int setParticles(int num, double packFrac, int disp, VecF<double> dispParams, int interact); //set particle properties
     int setRandom(int seed); //set random number generation
     int setSimulation(int eq, int prod, double swap, double accTarg); //set simulation parameters
-    int setAnalysis(string path, int xyzFreq, int anFreq, int rdf, double rdfDel, int vor); //set analysis parameters
+    int setAnalysis(string path, int xyzFreq, int vorFreq, int anFreq, int rdf, double rdfDel, int vor); //set analysis parameters
 
     //Member functions
     int initialiseConfiguration(Logfile &logfile, double maxIt); //generate initial particle positions
@@ -68,17 +68,18 @@ public:
     bool resolvePositions(); //resolve overlaps using steepest descent minimisation
     int initAnalysis(); //initialise analysis tools
     void equilibration(Logfile &logfile, OutputFile &xyzFile); //equilibration Monte Carlo
-    void production(Logfile &logfile, OutputFile &xyzFile, OutputFile &vorFile, OutputFile &radFile); //production Monte Carlo
-    void analyseConfiguration(OutputFile &vorFile, OutputFile &radFile); //analyse current configuration
+    void production(Logfile &logfile, OutputFile &xyzFile, OutputFile &vorFile, OutputFile &radFile, OutputFile &visFile); //production Monte Carlo
+    void analyseConfiguration(OutputFile &vorFile, OutputFile &radFile, OutputFile &visFile, bool vorWrite); //analyse current configuration
     void calculateRDF(); //calculate RDF for current configuration
-    void calculateVoronoi(OutputFile &vorFile); //calculate Voronoi and analyse
-    void calculateRadical(OutputFile &radFile); //calculate Radical Voronoi and analyse
+    void calculateVoronoi(OutputFile &vorFile, OutputFile &visFile, bool vis); //calculate Voronoi and analyse
+    void calculateRadical(OutputFile &radFile, OutputFile &visFile, bool vis); //calculate Radical Voronoi and analyse
     VecF<double> networkAnalysis(VecF<int> &sizes, VecF< VecF<int> > &adjs); //network analysis of sizes
     int optimalDelta(double &deltaMin, double &deltaMax, double &accProb); //find optimal translational delta
     int mcCycle(); //set of n-particle Monte Carlo moves
     void mcAdditiveMove(int &counter); //single Monte Carlo move with additive distances
     void mcNonAdditiveMove(int &counter); //single Monte Carlo move with non-additive distances
     void writeXYZ(OutputFile &xyzFile); //write configuration to xyz file
+    void writeVor(Voronoi &vor, OutputFile &visFile, int vorCode); //write voronoi visualisation
     void writeAnalysis(Logfile &logfile, OutputFile &vorFile, OutputFile &radFile, OutputFile &diaFile); //write analysis results to file
 };
 

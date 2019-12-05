@@ -2,22 +2,23 @@ Hard Disc Monte Carlo (HDMC)
 ---------------------------------------
 Particle Parameters
 100     number of particles
-poly  particle dispersity (mono,bi,poly)
-10.0  4.0     dispersity parameters (radius;radius1,radius2,proportion1;radius mean, radius std)
-nonadd     particle interactions (add,nonadd)
+bi  particle dispersity (mono,bi,poly)
+10.0  4.0  0.5     dispersity parameters (radius;radius1,radius2,proportion1;radius mean, radius std)
+add     particle interactions (add,nonadd)
 0.5     total packing fraction
 ---------------------------------------
 Simulation Parameters
 0       random seed
-2.5        rsa maximum interations (particles^n)
+2.5        rsa maximum iterations (particles^n)
 1000    equilibration moves per particle
-1000    production moves per particle
+100    production moves per particle
 0.1     swap probability
 0.5     target acceptance probability
 ---------------------------------------
 Analysis and Output
 ./output/test       path with run prefix for output files
-1       XYZ file write frequency (0=none)
+10       XYZ file write frequency (0=none)
+10       Voronoi file write frequency (0=none), must be multiple of analysis freq (and sensible to be same as XYZ freq)
 10     analysis frequency
 1       calculate RDF (0=none,1=normalised,2=unnormalised)
 0.02    RDF bin width

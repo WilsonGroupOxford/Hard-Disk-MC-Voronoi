@@ -110,7 +110,7 @@ int main(int argc, char **argv) {
     ++logfile.currIndent;
     for(int i=0; i<2; ++i) getline(inputFile,skip);
     string outputPrefix;
-    int xyzWriteFreq,analysisFreq,rdfAnalysis,vorAnalysis;
+    int xyzWriteFreq,vorWriteFreq,analysisFreq,rdfAnalysis,vorAnalysis;
     double rdfDelta;
     getline(inputFile,line);
     istringstream(line)>>outputPrefix;
@@ -118,6 +118,9 @@ int main(int argc, char **argv) {
     getline(inputFile,line);
     istringstream(line)>>xyzWriteFreq;
     logfile.write("XYZ file write frequency (cycles):",xyzWriteFreq);
+    getline(inputFile,line);
+    istringstream(line)>>vorWriteFreq;
+    logfile.write("Voronoi file write frequency (cycles):",vorWriteFreq);
     getline(inputFile,line);
     istringstream(line)>>analysisFreq;
     logfile.write("Analysis frequency (cycles):",analysisFreq);
@@ -143,7 +146,7 @@ int main(int argc, char **argv) {
     logfile.write("Random number generators initialised");
     simulation.setSimulation(eqCycles,prodCycles,swapProb,accTarget);
     logfile.write("Simulation parameters set");
-    simulation.setAnalysis(outputPrefix,xyzWriteFreq,analysisFreq,rdfAnalysis,rdfDelta,vorAnalysis);
+    simulation.setAnalysis(outputPrefix,xyzWriteFreq,vorWriteFreq,analysisFreq,rdfAnalysis,rdfDelta,vorAnalysis);
     logfile.write("Analysis and write parameters set");
     --logfile.currIndent;
     logfile.separator();
@@ -152,12 +155,13 @@ int main(int argc, char **argv) {
     OutputFile xyzFile(outputPrefix+".xyz");
     OutputFile vorFile(outputPrefix+"_vor.dat");
     OutputFile radFile(outputPrefix+"_rad.dat");
+    OutputFile visFile(outputPrefix+"_vis.dat");
     OutputFile diaFile(outputPrefix+"_dia.dat");
 
     //Run Monte Carlo simulation (xyz written only for production atm)
     simulation.initialiseConfiguration(logfile,rsaIt);
     simulation.equilibration(logfile,xyzFile);
-    simulation.production(logfile,xyzFile,vorFile,radFile);
+    simulation.production(logfile,xyzFile,vorFile,radFile,visFile);
 
     //Write analysis to files
     simulation.writeAnalysis(logfile,vorFile,radFile,diaFile);

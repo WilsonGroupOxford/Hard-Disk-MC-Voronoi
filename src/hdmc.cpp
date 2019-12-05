@@ -67,7 +67,7 @@ int HDMC::setSimulation(int eq, int prod, double swap, double accTarg) {
 }
 
 
-int HDMC::setAnalysis(string path, int xyzFreq, int anFreq, int rdf, double rdfDel, int vor) {
+int HDMC::setAnalysis(string path, int xyzFreq, int vorFreq, int anFreq, int rdf, double rdfDel, int vor) {
     //Set analysis parameters
 
     outputPrefix=path;
@@ -81,6 +81,16 @@ int HDMC::setAnalysis(string path, int xyzFreq, int anFreq, int rdf, double rdfD
     else{
         xyzWrite=true;
         xyzWriteFreq=xyzFreq;
+    }
+
+    //Set Voronoi output frequency with 0 preventing write
+    if(vorFreq==0) {
+        vorWrite=false;
+        vorWriteFreq=1;
+    }
+    else{
+        vorWrite=true;
+        vorWriteFreq=vorWrite;
     }
 
     //Set rdf type
@@ -115,6 +125,7 @@ int HDMC::initAnalysis() {
     //Initialise analysis tools
 
     analysisConfigs=0;
+    xyzConfigs=0;
 
     //RDF histogram
     if(rdfCalc){
@@ -777,7 +788,7 @@ int HDMC::optimalDelta(double &deltaMin, double &deltaMax, double &accProb) {
 }
 
 
-void HDMC::production(Logfile &logfile, OutputFile &xyzFile, OutputFile &vorFile, OutputFile &radFile) {
+void HDMC::production(Logfile &logfile, OutputFile &xyzFile, OutputFile &vorFile, OutputFile &radFile, OutputFile &visFile) {
     //Production Monte Carlo
 
     //Production cycles
@@ -793,7 +804,11 @@ void HDMC::production(Logfile &logfile, OutputFile &xyzFile, OutputFile &vorFile
             cout<<"Move cycles and acceptance: "<<i<<" "<<double(accCount)/(i*n)<<endl;
         }
         if(xyzWrite && i%xyzWriteFreq==0) writeXYZ(xyzFile);
-        if(i%analysisFreq==0) analyseConfiguration(vorFile,radFile);
+        if(i%analysisFreq==0){
+            bool vis=false;
+            if(vorWrite && i%vorWriteFreq==0) vis=true;
+            analyseConfiguration(vorFile,radFile,visFile,vis);
+        }
     }
     logfile.currIndent-=2;
     logfile.separator();
@@ -803,12 +818,12 @@ void HDMC::production(Logfile &logfile, OutputFile &xyzFile, OutputFile &vorFile
 //--------- ANALYSIS ----------
 
 
-void HDMC::analyseConfiguration(OutputFile &vorFile, OutputFile &radFile) {
+void HDMC::analyseConfiguration(OutputFile &vorFile, OutputFile &radFile, OutputFile &visFile, bool vorWrite) {
     //Control analysis of current configuration
 
     if(rdfCalc) calculateRDF();
-    if(vorCalc) calculateVoronoi(vorFile);
-    if(radCalc) calculateRadical(radFile);
+    if(vorCalc) calculateVoronoi(vorFile,visFile,vorWrite);
+    if(radCalc) calculateRadical(radFile,visFile,vorWrite);
 
     ++analysisConfigs;
 }
@@ -912,7 +927,7 @@ void HDMC::calculateRDF() {
 }
 
 
-void HDMC::calculateVoronoi(OutputFile &vorFile) {
+void HDMC::calculateVoronoi(OutputFile &vorFile, OutputFile &visFile, bool vis) {
     //Calculate Voronoi and analyse
 
     //Make voronoi and calculate cell sizes and neighbours
@@ -953,10 +968,13 @@ void HDMC::calculateVoronoi(OutputFile &vorFile) {
         nn[3+i]=nnCount[i];
     }
     vorFile.writeRowVector(nn);
+
+    //Write Voronoi visualisation
+    if(vis) writeVor(vor,visFile,1);
 }
 
 
-void HDMC::calculateRadical(OutputFile &radFile) {
+void HDMC::calculateRadical(OutputFile &radFile, OutputFile &visFile, bool vis) {
     //Calculate radical and analyse
 
     //Make voronoi and calculate cell sizes and neighbours
@@ -997,6 +1015,9 @@ void HDMC::calculateRadical(OutputFile &radFile) {
         nn[3+i]=nnCount[i];
     }
     radFile.writeRowVector(nn);
+
+    //Write radical visualisation
+    if(vis) writeVor(rad,visFile,2);
 }
 
 
@@ -1055,6 +1076,23 @@ void HDMC::writeXYZ(OutputFile &xyzFile) {
         if(interaction==0) for(int i=0; i<n; ++i) xyzFile.write("Ar"+to_string(i)+" "+to_string(x[i])+" "+to_string(y[i])+" 0.0");
         else if(interaction==1) for(int i=0; i<n; ++i) xyzFile.write("Ar"+to_string(i)+" "+to_string(x[i])+" "+to_string(y[i])+" "+to_string(r[i]));
     }
+    ++xyzConfigs;
+}
+
+
+void HDMC::writeVor(Voronoi &vor, OutputFile &visFile, int vorCode) {
+    //Write voronoi visualisation to file
+
+    //Write voronoi frame and type
+    visFile.write(xyzConfigs-1);
+    visFile.write(vorCode);
+
+    //Calculate rings
+    VecF< VecR<double> > rings;
+    vor.getRings(x,y,rings);
+
+    //Write rings
+    for(int i=0; i<rings.n; ++i) visFile.writeRowVector(rings[i]);
 }
 
 
