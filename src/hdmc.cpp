@@ -934,7 +934,7 @@ void HDMC::calculateVoronoi(OutputFile &vorFile, OutputFile &visFile, bool vis) 
     VecF<int> cellSizeDistA,cellSizeDistB,nnCount;
     VecF<VecF<int> > cellAdjDist;
     VecF<double> cellAreaA,cellAreaB,nnSep;
-    Voronoi vor(x, y, r, cellLen_2, nA, false);
+    Voronoi2D vor(x, y, r, cellLen_2, nA, false);
     vor.analyse(maxVertices, cellSizeDistA, cellSizeDistB, cellAdjDist, cellAreaA, cellAreaB);
     vor.nnDistances(x,y,cellLen,rCellLen,nnSep,nnCount);
 
@@ -981,7 +981,7 @@ void HDMC::calculateRadical(OutputFile &radFile, OutputFile &visFile, bool vis) 
     VecF<int> cellSizeDistA,cellSizeDistB,nnCount;
     VecF<VecF<int> > cellAdjDist;
     VecF<double> cellAreaA,cellAreaB,nnSep;
-    Voronoi rad(x, y, w, cellLen_2, nA, true);
+    Voronoi2D rad(x, y, w, cellLen_2, nA, true);
     rad.analyse(maxVertices, cellSizeDistA, cellSizeDistB, cellAdjDist, cellAreaA, cellAreaB);
     rad.nnDistances(x,y,cellLen,rCellLen,nnSep,nnCount);
 
@@ -1080,7 +1080,7 @@ void HDMC::writeXYZ(OutputFile &xyzFile) {
 }
 
 
-void HDMC::writeVor(Voronoi &vor, OutputFile &visFile, int vorCode) {
+void HDMC::writeVor(Voronoi2D &vor, OutputFile &visFile, int vorCode) {
     //Write voronoi visualisation to file
 
     //Write voronoi frame and type

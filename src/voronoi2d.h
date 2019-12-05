@@ -15,7 +15,7 @@
 
 using namespace std;
 
-class Voronoi {
+class Voronoi2D {
     //Voronoi analysis of 2D system using Voro++
 
 private:
@@ -33,7 +33,7 @@ private:
 public:
 
     //Constructor
-    Voronoi(VecF<double> &x, VecF<double> &y, VecF<double> &w, double cellLen_2, int numA, bool radical); //2D coordinates and weights, cell info
+    Voronoi2D(VecF<double> &x, VecF<double> &y, VecF<double> &w, double cellLen_2, int numA, bool radical); //2D coordinates and weights, cell info
 
     //Member functions
     void analyse(int maxSize, VecF<int> &cellSizeDistA, VecF<int> &cellSizeDistB, VecF< VecF<int> > &cellAdjDist, VecF<double> &cellAreaA, VecF<double> &cellAreaB);

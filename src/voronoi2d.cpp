@@ -1,7 +1,7 @@
-#include "voronoi.h"
+#include "voronoi2d.h"
 
 
-Voronoi::Voronoi(VecF<double> &x, VecF<double> &y, VecF<double> &w, double cellLen_2, int numA, bool radical) {
+Voronoi2D::Voronoi2D(VecF<double> &x, VecF<double> &y, VecF<double> &w, double cellLen_2, int numA, bool radical) {
     //Initialise with x,y coordinates and radii
 
     //Make periodic container in xy
@@ -27,7 +27,7 @@ Voronoi::Voronoi(VecF<double> &x, VecF<double> &y, VecF<double> &w, double cellL
 }
 
 
-void Voronoi::analyse(int maxSize, VecF<int> &cellSizeDistA, VecF<int> &cellSizeDistB, VecF<VecF<int> > &cellAdjDist,
+void Voronoi2D::analyse(int maxSize, VecF<int> &cellSizeDistA, VecF<int> &cellSizeDistB, VecF<VecF<int> > &cellAdjDist,
                       VecF<double> &cellAreaA, VecF<double> &cellAreaB) {
     //Analyse Voronoi cell sizes and adjacencies
 
@@ -67,7 +67,7 @@ void Voronoi::analyse(int maxSize, VecF<int> &cellSizeDistA, VecF<int> &cellSize
 }
 
 
-void Voronoi::nnDistances(VecF<double> &x, VecF<double> &y, double cellLen, double rCellLen, VecF<double> &nnSep, VecF<int> &nnCount) {
+void Voronoi2D::nnDistances(VecF<double> &x, VecF<double> &y, double cellLen, double rCellLen, VecF<double> &nnSep, VecF<int> &nnCount) {
     //Calculate nearest neighbour distances
 
     //Calculate nearest neighbour distances between different cell types
@@ -91,7 +91,7 @@ void Voronoi::nnDistances(VecF<double> &x, VecF<double> &y, double cellLen, doub
 }
 
 
-void Voronoi::computeCells(int maxSize) {
+void Voronoi2D::computeCells(int maxSize) {
     //Calculate neighbouring particles for each particle, and area of cells
 
     //Make looper
@@ -121,7 +121,7 @@ void Voronoi::computeCells(int maxSize) {
 }
 
 
-void Voronoi::getRings(VecF<double> &x, VecF<double> &y, VecF< VecR<double> > &rings) {
+void Voronoi2D::getRings(VecF<double> &x, VecF<double> &y, VecF< VecR<double> > &rings) {
     //Find rings as vertex coordinates
 
     //Make looper
