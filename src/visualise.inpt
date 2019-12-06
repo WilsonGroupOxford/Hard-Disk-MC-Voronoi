@@ -2,7 +2,7 @@ I/0
 ./output/test      input file prefix
 ---------------------------------------------------
 Sample
-0           frame number
+3           frame number
 ---------------------------------------------------
 Display
 1           particle positions

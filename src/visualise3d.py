@@ -3,8 +3,11 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.pylab as pylab
-from matplotlib.patches import Circle, Polygon
-from matplotlib.collections import PatchCollection
+from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+from matplotlib import cm
+from matplotlib.colors import ListedColormap, LinearSegmentedColormap, Normalize
+
 
 """
 Visualise hard disk Monte Carlo simulation.
@@ -51,8 +54,8 @@ class Visualisation:
         if not os.path.isfile('{}.xyz'.format(self.prefix)):
             print('Cannot find simulation file "{}.xyz"'.format(self.prefix))
             sys.exit()
-        if not os.path.isfile('{}_vis2d.dat'.format(self.prefix)):
-            print('Cannot find simulation file "{}_vis2d.dat"'.format(self.prefix))
+        if not os.path.isfile('{}_vis3d.dat'.format(self.prefix)):
+            print('Cannot find simulation file "{}_vis3d.dat"'.format(self.prefix))
             sys.exit()
         if not os.path.isfile('{}_dia.dat'.format(self.prefix)):
             print('Cannot find simulation file "{}_dia.dat"'.format(self.prefix))
@@ -62,7 +65,7 @@ class Visualisation:
         print('Reading simulation xyz file')
         with open('{}.xyz'.format(self.prefix),'r') as f:
             self.n = int(f.readline().split()[0])
-            self.crds = np.zeros((self.n,2))
+            self.crds = np.zeros((self.n,3))
             f.seek(0,0)
             for i in range(self.frame):
                 for j in range(2+self.n):
@@ -70,23 +73,25 @@ class Visualisation:
             f.readline()
             f.readline()
             for j in range(self.n):
-                self.crds[j,:] = np.array([float(c) for c in f.readline().split()[1:3]])
+                self.crds[j,:] = np.array([float(c) for c in f.readline().split()[1:]])
 
         # Read rings file
         print('Reading simulation ring file')
-        with open('{}_vis2d.dat'.format(self.prefix),'r') as f:
+        with open('{}_vis3d.dat'.format(self.prefix),'r') as f:
             self.rings = []
             if self.vis_vortype != 0:
                 while True:
                     frame = int(f.readline().split()[0])
                     vor_type = int(f.readline().split()[0])
+                    self.z_limits = [float(z) for z in f.readline().split()[:2]]
+                    self.m = int(f.readline().split()[0])
                     if frame==self.frame and vor_type==self.vis_vortype:
-                        for i in range(self.n):
+                        for i in range(self.m):
                             ring = np.array([float(c) for c in f.readline().split()])
-                            self.rings.append(ring.reshape(ring.shape[0]//2,2))
+                            self.rings.append(ring.reshape(ring.shape[0]//3,3))
                         break
                     else:
-                        for i in range(self.n):
+                        for i in range(self.m):
                             f.readline()
 
         # Read diameter file
@@ -100,25 +105,26 @@ class Visualisation:
         # Initialise figure
         params = {"figure.figsize": (5, 5)}
         pylab.rcParams.update(params)
-        self.fig = plt.figure()
-        self.ax = self.fig.add_subplot(111)
+        fig = plt.figure()
+        self.ax = Axes3D(fig)
+        self.ax.set_axis_off()
 
         # Add particles if selected
-        if self.vis_particles:
-            patches = []
-            patches_pnts = []
-            for i,c in enumerate(self.crds):
-                patches.append(Circle(c,radius=self.radii[i]))
-                patches_pnts.append(Circle(c,radius=1))
-            self.ax.add_collection(PatchCollection(patches, facecolor='blue', alpha=0.5))
-            self.ax.add_collection(PatchCollection(patches_pnts, facecolor='k', alpha=1.0))
+        # if self.vis_particles:
+        #     self.ax.scatter(self.crds[:,0],self.crds[:,1],self.crds[:,2], color="r")
 
         # Add voronoi
         if self.vis_vortype!=0:
-            patches = []
-            for i in range(self.n):
-                patches.append(Polygon(self.rings[i],True))
-            self.ax.add_collection(PatchCollection(patches, facecolor=(0, 0, 0, 0), edgecolor='k'))
+            for i in range(self.m):
+                if np.all(np.abs(self.rings[i][:,2]-self.z_limits[0])<1e-6):
+                    colour = 'r'
+                elif np.all(np.abs(self.rings[i][:,2]-self.z_limits[1])<1e-6):
+                    colour = 'b'
+                else:
+                    colour = 'w'
+
+                # self.ax.add_collection3d(Poly3DCollection([self.rings[i]],facecolor=(0,0,0,0),edgecolor="k"))
+                self.ax.add_collection3d(Poly3DCollection([self.rings[i]],facecolor=colour,edgecolor="k"))
 
     #     # Add polygons if selected
     #     if self.vis_polygons:
@@ -172,6 +178,7 @@ class Visualisation:
         lim = buffer*np.max(np.abs(self.crds))
         self.ax.set_xlim((-lim,lim))
         self.ax.set_ylim((-lim,lim))
+        self.ax.set_zlim((-lim,lim))
         self.ax.set_axis_off()
 
         # Show figure

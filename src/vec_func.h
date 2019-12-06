@@ -54,6 +54,16 @@ double vMinimum(T vec){
     return min;
 }
 
+//Maximum value in vector
+template <typename T>
+double vMaximum(T vec){
+    double max=vec[0];
+    for(int i=1; i<vec.n; ++i){
+        if(vec[i]>max) max=vec[i];
+    }
+    return max;
+}
+
 //Cyclic permutation of vector elements
 template <typename T>
 T vCyclicPermutation(T vec){

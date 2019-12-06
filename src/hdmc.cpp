@@ -67,31 +67,11 @@ int HDMC::setSimulation(int eq, int prod, double swap, double accTarg) {
 }
 
 
-int HDMC::setAnalysis(string path, int xyzFreq, int vorFreq, int anFreq, int rdf, double rdfDel, int vor) {
+int HDMC::setAnalysis(string path, int anFreq, int rdf, double rdfDel, VecF<int> vor, int visF, int vis3) {
     //Set analysis parameters
 
     outputPrefix=path;
     analysisFreq=anFreq;
-
-    //Set xyz output frequency with 0 preventing write
-    if(xyzFreq==0){
-        xyzWrite=false;
-        xyzWriteFreq=1;
-    }
-    else{
-        xyzWrite=true;
-        xyzWriteFreq=xyzFreq;
-    }
-
-    //Set Voronoi output frequency with 0 preventing write
-    if(vorFreq==0) {
-        vorWrite=false;
-        vorWriteFreq=1;
-    }
-    else{
-        vorWrite=true;
-        vorWriteFreq=vorWrite;
-    }
 
     //Set rdf type
     if(rdf==0) rdfCalc=false;
@@ -106,15 +86,29 @@ int HDMC::setAnalysis(string path, int xyzFreq, int vorFreq, int anFreq, int rdf
         rdfDelta=rdfDel;
     }
 
-    //Set voronoi type
-    vorCalc=false;
-    radCalc=false;
-    if(vor==1) vorCalc=true;
-    else if(vor==2) radCalc=true;
-    else if(vor==3){
-        vorCalc=true;
-        radCalc=true;
+    //Set visualisation output frequency with 0 preventing write
+    visFreq=visF;
+    if(visFreq==0){
+        visXYZ=false;
+        visVor2D=false;
+        visVor3D=false;
+        visFreq=1;
     }
+    else{
+        visXYZ=true;
+        visVor2D=true;
+        visVor3D=vis3;
+    }
+
+    //Set voronoi type
+    vorCalc2D=false;
+    radCalc2D=false;
+    vorCalc3D=false;
+    radCalc3D=false;
+    if(vor[0]==1) vorCalc2D=true;
+    if(vor[1]==1) radCalc2D=true;
+    if(vor[2]==1) vorCalc3D=true;
+    if(vor[3]==1) radCalc3D=true;
     maxVertices=21;
 
     return 0;
@@ -139,25 +133,45 @@ int HDMC::initAnalysis() {
     }
 
     //Voronoi distributions
-    if(vorCalc){
-        vorSizesA=VecF<int>(maxVertices);
-        vorSizesB=VecF<int>(maxVertices);
-        vorAdjs=VecF< VecF<int> >(maxVertices);
-        for(int i=0; i<maxVertices; ++i) vorAdjs[i]=VecF<int>(maxVertices);
-        vorAreasA=VecF<double>(maxVertices+1);
-        vorAreasB=VecF<double>(maxVertices+1);
-        vorNNCount=VecF<int>(3);
-        vorNNSep=VecF<double>(3);
+    if(vorCalc2D){
+        vor2DSizesA=VecF<int>(maxVertices);
+        vor2DSizesB=VecF<int>(maxVertices);
+        vor2DAdjs=VecF< VecF<int> >(maxVertices);
+        for(int i=0; i<maxVertices; ++i) vor2DAdjs[i]=VecF<int>(maxVertices);
+        vor2DAreasA=VecF<double>(maxVertices+1);
+        vor2DAreasB=VecF<double>(maxVertices+1);
+        vor2DNNCount=VecF<int>(3);
+        vor2DNNSep=VecF<double>(3);
     }
-    if(radCalc){
-        radSizesA=VecF<int>(maxVertices);
-        radSizesB=VecF<int>(maxVertices);
-        radAdjs=VecF< VecF<int> >(maxVertices);
-        for(int i=0; i<maxVertices; ++i) radAdjs[i]=VecF<int>(maxVertices);
-        radAreasA=VecF<double>(maxVertices+1);
-        radAreasB=VecF<double>(maxVertices+1);
-        radNNCount=VecF<int>(3);
-        radNNSep=VecF<double>(3);
+    if(radCalc2D){
+        rad2DSizesA=VecF<int>(maxVertices);
+        rad2DSizesB=VecF<int>(maxVertices);
+        rad2DAdjs=VecF< VecF<int> >(maxVertices);
+        for(int i=0; i<maxVertices; ++i) rad2DAdjs[i]=VecF<int>(maxVertices);
+        rad2DAreasA=VecF<double>(maxVertices+1);
+        rad2DAreasB=VecF<double>(maxVertices+1);
+        rad2DNNCount=VecF<int>(3);
+        rad2DNNSep=VecF<double>(3);
+    }
+    if(vorCalc3D){
+        vor3DSizesA=VecF<int>(maxVertices);
+        vor3DSizesB=VecF<int>(maxVertices);
+        vor3DAdjs=VecF< VecF<int> >(maxVertices);
+        for(int i=0; i<maxVertices; ++i) vor3DAdjs[i]=VecF<int>(maxVertices);
+        vor3DAreasA=VecF<double>(maxVertices+1);
+        vor3DAreasB=VecF<double>(maxVertices+1);
+        vor3DNNCount=VecF<int>(3);
+        vor3DNNSep=VecF<double>(3);
+    }
+    if(radCalc3D){
+        rad3DSizesA=VecF<int>(maxVertices);
+        rad3DSizesB=VecF<int>(maxVertices);
+        rad3DAdjs=VecF< VecF<int> >(maxVertices);
+        for(int i=0; i<maxVertices; ++i) rad3DAdjs[i]=VecF<int>(maxVertices);
+        rad3DAreasA=VecF<double>(maxVertices+1);
+        rad3DAreasB=VecF<double>(maxVertices+1);
+        rad3DNNCount=VecF<int>(3);
+        rad3DNNSep=VecF<double>(3);
     }
 
     return 0;
@@ -177,6 +191,7 @@ int HDMC::initialiseConfiguration(Logfile &logfile, double maxIt) {
     //Allocate vectors
     x=VecF<double>(n);
     y=VecF<double>(n);
+    z=VecF<double>(n);
     r=VecF<double>(n);
     w=VecF<double>(n);
 
@@ -233,6 +248,11 @@ int HDMC::initialiseConfiguration(Logfile &logfile, double maxIt) {
         if(success) break;
         ++attempt;
     }
+
+    //Set z coordinate
+    //z only used for analysis not Monte Carlo
+    if(interaction==0) z=0.0;
+    else if(interaction==1) z=r;
 
     //Exit if cannot generate
     if(!success) logfile.criticalError("Could not generate starting configuration");
@@ -788,7 +808,8 @@ int HDMC::optimalDelta(double &deltaMin, double &deltaMax, double &accProb) {
 }
 
 
-void HDMC::production(Logfile &logfile, OutputFile &xyzFile, OutputFile &vorFile, OutputFile &radFile, OutputFile &visFile) {
+void HDMC::production(Logfile &logfile, OutputFile &xyzFile, OutputFile &vor2DFile, OutputFile &rad2DFile,
+                      OutputFile &vor3DFile, OutputFile &rad3DFile, OutputFile &vis2DFile, OutputFile &vis3DFile) {
     //Production Monte Carlo
 
     //Production cycles
@@ -803,11 +824,10 @@ void HDMC::production(Logfile &logfile, OutputFile &xyzFile, OutputFile &vorFile
             logfile.write("Move cycles and acceptance:",i,double(accCount)/(i*n));
             cout<<"Move cycles and acceptance: "<<i<<" "<<double(accCount)/(i*n)<<endl;
         }
-        if(xyzWrite && i%xyzWriteFreq==0) writeXYZ(xyzFile);
         if(i%analysisFreq==0){
-            bool vis=false;
-            if(vorWrite && i%vorWriteFreq==0) vis=true;
-            analyseConfiguration(vorFile,radFile,visFile,vis);
+            bool vis=(i%visFreq==0)*visVor2D;
+            if(vis && visXYZ) writeXYZ(xyzFile);
+            analyseConfiguration(vor2DFile,rad2DFile,vor3DFile,rad3DFile,vis2DFile,vis3DFile,vis);
         }
     }
     logfile.currIndent-=2;
@@ -818,12 +838,15 @@ void HDMC::production(Logfile &logfile, OutputFile &xyzFile, OutputFile &vorFile
 //--------- ANALYSIS ----------
 
 
-void HDMC::analyseConfiguration(OutputFile &vorFile, OutputFile &radFile, OutputFile &visFile, bool vorWrite) {
+void HDMC::analyseConfiguration(OutputFile &vor2DFile, OutputFile &rad2DFile, OutputFile &vor3DFile,
+                                OutputFile &rad3DFile, OutputFile &vis2DFile, OutputFile &vis3DFile, bool vis) {
     //Control analysis of current configuration
 
     if(rdfCalc) calculateRDF();
-    if(vorCalc) calculateVoronoi(vorFile,visFile,vorWrite);
-    if(radCalc) calculateRadical(radFile,visFile,vorWrite);
+    if(vorCalc2D) calculateVoronoi2D(vor2DFile,vis2DFile,vis);
+    if(radCalc2D) calculateRadical2D(rad2DFile,vis2DFile,vis);
+    if(vorCalc3D) calculateVoronoi3D(vor3DFile,vis2DFile,vis3DFile,vis);
+    if(radCalc3D) calculateRadical3D(rad3DFile,vis2DFile,vis3DFile,vis);
 
     ++analysisConfigs;
 }
@@ -927,7 +950,7 @@ void HDMC::calculateRDF() {
 }
 
 
-void HDMC::calculateVoronoi(OutputFile &vorFile, OutputFile &visFile, bool vis) {
+void HDMC::calculateVoronoi2D(OutputFile &vor2DFile, OutputFile &vis2DFile, bool vis) {
     //Calculate Voronoi and analyse
 
     //Make voronoi and calculate cell sizes and neighbours
@@ -939,26 +962,26 @@ void HDMC::calculateVoronoi(OutputFile &vorFile, OutputFile &visFile, bool vis) 
     vor.nnDistances(x,y,cellLen,rCellLen,nnSep,nnCount);
 
     //Add results to global results
-    vorSizesA += cellSizeDistA;
-    vorSizesB += cellSizeDistB;
-    vorAreasA += cellAreaA;
-    vorAreasB += cellAreaB;
-    vorNNCount += nnCount;
-    vorNNSep += nnSep;
-    for (int i = 0; i < cellAdjDist.n; ++i) vorAdjs[i] += cellAdjDist[i];
+    vor2DSizesA += cellSizeDistA;
+    vor2DSizesB += cellSizeDistB;
+    vor2DAreasA += cellAreaA;
+    vor2DAreasB += cellAreaB;
+    vor2DNNCount += nnCount;
+    vor2DNNSep += nnSep;
+    for (int i = 0; i < cellAdjDist.n; ++i) vor2DAdjs[i] += cellAdjDist[i];
 
     //Get network analysis and write for type A configuration
     for(int i=0; i<cellSizeDistA.n; ++i) if(cellSizeDistA[i]>0) cellAreaA[i]/=cellSizeDistA[i];
     VecF<double> resA = networkAnalysis(cellSizeDistA, cellAdjDist);
-    vorFile.writeRowVector(resA);
-    vorFile.writeRowVector(cellAreaA);
+    vor2DFile.writeRowVector(resA);
+    vor2DFile.writeRowVector(cellAreaA);
 
     //Get network analysis and write for type B configuration
     if(dispersity==2) {
         for(int i=0; i<cellSizeDistB.n; ++i) if(cellSizeDistB[i]>0) cellAreaB[i]/=cellSizeDistB[i];
         VecF<double> resB = networkAnalysis(cellSizeDistB, cellAdjDist);
-        vorFile.writeRowVector(resB);
-        vorFile.writeRowVector(cellAreaB);
+        vor2DFile.writeRowVector(resB);
+        vor2DFile.writeRowVector(cellAreaB);
     }
 
     //Write nearest neighbour distances and frequency
@@ -967,14 +990,14 @@ void HDMC::calculateVoronoi(OutputFile &vorFile, OutputFile &visFile, bool vis) 
         if(nnCount[i]>0) nn[i]=nnSep[i]/nnCount[i];
         nn[3+i]=nnCount[i];
     }
-    vorFile.writeRowVector(nn);
+    vor2DFile.writeRowVector(nn);
 
     //Write Voronoi visualisation
-    if(vis) writeVor(vor,visFile,1);
+    if(vis) writeVor(vor,vis2DFile,1);
 }
 
 
-void HDMC::calculateRadical(OutputFile &radFile, OutputFile &visFile, bool vis) {
+void HDMC::calculateRadical2D(OutputFile &rad2DFile, OutputFile &vis2DFile, bool vis) {
     //Calculate radical and analyse
 
     //Make voronoi and calculate cell sizes and neighbours
@@ -986,26 +1009,26 @@ void HDMC::calculateRadical(OutputFile &radFile, OutputFile &visFile, bool vis) 
     rad.nnDistances(x,y,cellLen,rCellLen,nnSep,nnCount);
 
     //Add results to global results
-    radSizesA += cellSizeDistA;
-    radSizesB += cellSizeDistB;
-    radAreasA += cellAreaA;
-    radAreasB += cellAreaB;
-    radNNCount += nnCount;
-    radNNSep += nnSep;
-    for (int i = 0; i < cellAdjDist.n; ++i) radAdjs[i] += cellAdjDist[i];
+    rad2DSizesA += cellSizeDistA;
+    rad2DSizesB += cellSizeDistB;
+    rad2DAreasA += cellAreaA;
+    rad2DAreasB += cellAreaB;
+    rad2DNNCount += nnCount;
+    rad2DNNSep += nnSep;
+    for (int i = 0; i < cellAdjDist.n; ++i) rad2DAdjs[i] += cellAdjDist[i];
 
     //Get network analysis and write for type A configuration
     for(int i=0; i<cellSizeDistA.n; ++i) if(cellSizeDistA[i]>0) cellAreaA[i]/=cellSizeDistA[i];
     VecF<double> resA = networkAnalysis(cellSizeDistA, cellAdjDist);
-    radFile.writeRowVector(resA);
-    radFile.writeRowVector(cellAreaA);
+    rad2DFile.writeRowVector(resA);
+    rad2DFile.writeRowVector(cellAreaA);
 
     //Get network analysis and write for type B configuration
     if(dispersity==2) {
         for(int i=0; i<cellSizeDistB.n; ++i) if(cellSizeDistB[i]>0) cellAreaB[i]/=cellSizeDistB[i];
         VecF<double> resB = networkAnalysis(cellSizeDistB, cellAdjDist);
-        radFile.writeRowVector(resB);
-        radFile.writeRowVector(cellAreaB);
+        rad2DFile.writeRowVector(resB);
+        rad2DFile.writeRowVector(cellAreaB);
     }
 
     //Write nearest neighbour distances and frequency
@@ -1014,10 +1037,104 @@ void HDMC::calculateRadical(OutputFile &radFile, OutputFile &visFile, bool vis) 
         if(nnCount[i]>0) nn[i]=nnSep[i]/nnCount[i];
         nn[3+i]=nnCount[i];
     }
-    radFile.writeRowVector(nn);
+    rad2DFile.writeRowVector(nn);
 
     //Write radical visualisation
-    if(vis) writeVor(rad,visFile,2);
+    if(vis) writeVor(rad,vis2DFile,2);
+}
+
+
+void HDMC::calculateVoronoi3D(OutputFile &vor3DFile, OutputFile &vis2DFile, OutputFile &vis3DFile, bool vis) {
+    //Calculate Voronoi and analyse
+
+    //Make voronoi and calculate cell sizes and neighbours
+    VecF<int> cellSizeDistA,cellSizeDistB,nnCount;
+    VecF<VecF<int> > cellAdjDist;
+    VecF<double> cellAreaA,cellAreaB,nnSep;
+    Voronoi3D vor(x, y, z, r, cellLen_2, nA, false, maxVertices);
+    vor.analyse(maxVertices, cellSizeDistA, cellSizeDistB, cellAdjDist, cellAreaA, cellAreaB);
+    vor.nnDistances(x,y,cellLen,rCellLen,nnSep,nnCount);
+
+    //Add results to global results
+    vor3DSizesA += cellSizeDistA;
+    vor3DSizesB += cellSizeDistB;
+    vor3DAreasA += cellAreaA;
+    vor3DAreasB += cellAreaB;
+    vor3DNNCount += nnCount;
+    vor3DNNSep += nnSep;
+    for (int i = 0; i < cellAdjDist.n; ++i) vor3DAdjs[i] += cellAdjDist[i];
+
+    //Get network analysis and write for type A configuration
+    for(int i=0; i<cellSizeDistA.n; ++i) if(cellSizeDistA[i]>0) cellAreaA[i]/=cellSizeDistA[i];
+    VecF<double> resA = networkAnalysis(cellSizeDistA, cellAdjDist);
+    vor3DFile.writeRowVector(resA);
+    vor3DFile.writeRowVector(cellAreaA);
+
+    //Get network analysis and write for type B configuration
+    if(dispersity==2) {
+        for(int i=0; i<cellSizeDistB.n; ++i) if(cellSizeDistB[i]>0) cellAreaB[i]/=cellSizeDistB[i];
+        VecF<double> resB = networkAnalysis(cellSizeDistB, cellAdjDist);
+        vor3DFile.writeRowVector(resB);
+        vor3DFile.writeRowVector(cellAreaB);
+    }
+
+    //Write nearest neighbour distances and frequency
+    VecF<double> nn(6);
+    for(int i=0; i<3; ++i){
+        if(nnCount[i]>0) nn[i]=nnSep[i]/nnCount[i];
+        nn[3+i]=nnCount[i];
+    }
+    vor3DFile.writeRowVector(nn);
+
+    //Write Voronoi visualisation
+    if(vis) writeVor(vor,vis2DFile,vis3DFile,3);
+}
+
+
+void HDMC::calculateRadical3D(OutputFile &rad3DFile, OutputFile &vis2DFile, OutputFile &vis3DFile, bool vis) {
+    //Calculate Voronoi and analyse
+
+    //Make voronoi and calculate cell sizes and neighbours
+    VecF<int> cellSizeDistA,cellSizeDistB,nnCount;
+    VecF<VecF<int> > cellAdjDist;
+    VecF<double> cellAreaA,cellAreaB,nnSep;
+    Voronoi3D rad(x, y, z, r, cellLen_2, nA, true, maxVertices);
+    rad.analyse(maxVertices, cellSizeDistA, cellSizeDistB, cellAdjDist, cellAreaA, cellAreaB);
+    rad.nnDistances(x,y,cellLen,rCellLen,nnSep,nnCount);
+
+    //Add results to global results
+    rad3DSizesA += cellSizeDistA;
+    rad3DSizesB += cellSizeDistB;
+    rad3DAreasA += cellAreaA;
+    rad3DAreasB += cellAreaB;
+    rad3DNNCount += nnCount;
+    rad3DNNSep += nnSep;
+    for (int i = 0; i < cellAdjDist.n; ++i) rad3DAdjs[i] += cellAdjDist[i];
+
+    //Get network analysis and write for type A configuration
+    for(int i=0; i<cellSizeDistA.n; ++i) if(cellSizeDistA[i]>0) cellAreaA[i]/=cellSizeDistA[i];
+    VecF<double> resA = networkAnalysis(cellSizeDistA, cellAdjDist);
+    rad3DFile.writeRowVector(resA);
+    rad3DFile.writeRowVector(cellAreaA);
+
+    //Get network analysis and write for type B configuration
+    if(dispersity==2) {
+        for(int i=0; i<cellSizeDistB.n; ++i) if(cellSizeDistB[i]>0) cellAreaB[i]/=cellSizeDistB[i];
+        VecF<double> resB = networkAnalysis(cellSizeDistB, cellAdjDist);
+        rad3DFile.writeRowVector(resB);
+        rad3DFile.writeRowVector(cellAreaB);
+    }
+
+    //Write nearest neighbour distances and frequency
+    VecF<double> nn(6);
+    for(int i=0; i<3; ++i){
+        if(nnCount[i]>0) nn[i]=nnSep[i]/nnCount[i];
+        nn[3+i]=nnCount[i];
+    }
+    rad3DFile.writeRowVector(nn);
+
+    //Write Voronoi visualisation
+    if(vis) writeVor(rad,vis2DFile,vis3DFile,4);
 }
 
 
@@ -1059,44 +1176,63 @@ void HDMC::writeXYZ(OutputFile &xyzFile) {
 
     xyzFile.write(n);
     xyzFile.write("");
-    if(dispersity==1){
-        for(int i=0; i<n; ++i) xyzFile.write("Ar"+to_string(i)+" "+to_string(x[i])+" "+to_string(y[i])+" 0.0");
+    if(dispersity==1 or dispersity==3){
+        for(int i=0; i<n; ++i) xyzFile.write("Ar"+to_string(i)+" "+to_string(x[i])+" "+to_string(y[i])+" "+to_string(z[i]));
     }
     else if(dispersity==2){
-        if(interaction==0){
-            for(int i=0; i<nA; ++i) xyzFile.write("O "+to_string(x[i])+" "+to_string(y[i])+" 0.0");
-            for(int i=nA; i<n; ++i) xyzFile.write("S "+to_string(x[i])+" "+to_string(y[i])+" 0.0");
-        }
-        else if(interaction==1){
-            for(int i=0; i<nA; ++i) xyzFile.write("O "+to_string(x[i])+" "+to_string(y[i])+" "+to_string(r[i]));
-            for(int i=nA; i<n; ++i) xyzFile.write("S "+to_string(x[i])+" "+to_string(y[i])+" "+to_string(r[i]));
-        }
-    }
-    else if(dispersity==3){
-        if(interaction==0) for(int i=0; i<n; ++i) xyzFile.write("Ar"+to_string(i)+" "+to_string(x[i])+" "+to_string(y[i])+" 0.0");
-        else if(interaction==1) for(int i=0; i<n; ++i) xyzFile.write("Ar"+to_string(i)+" "+to_string(x[i])+" "+to_string(y[i])+" "+to_string(r[i]));
+        for(int i=0; i<nA; ++i) xyzFile.write("O "+to_string(x[i])+" "+to_string(y[i])+" "+to_string(z[i]));
+        for(int i=nA; i<n; ++i) xyzFile.write("S "+to_string(x[i])+" "+to_string(y[i])+" "+to_string(z[i]));
     }
     ++xyzConfigs;
 }
 
 
-void HDMC::writeVor(Voronoi2D &vor, OutputFile &visFile, int vorCode) {
+void HDMC::writeVor(Voronoi2D &vor, OutputFile &vis2DFile, int vorCode) {
     //Write voronoi visualisation to file
 
     //Write voronoi frame and type
-    visFile.write(xyzConfigs-1);
-    visFile.write(vorCode);
+    vis2DFile.write(xyzConfigs-1);
+    vis2DFile.write(vorCode);
 
     //Calculate rings
     VecF< VecR<double> > rings;
     vor.getRings(x,y,rings);
 
     //Write rings
-    for(int i=0; i<rings.n; ++i) visFile.writeRowVector(rings[i]);
+    for(int i=0; i<rings.n; ++i) vis2DFile.writeRowVector(rings[i]);
 }
 
 
-void HDMC::writeAnalysis(Logfile &logfile, OutputFile &vorFile, OutputFile &radFile, OutputFile &diaFile) {
+void HDMC::writeVor(Voronoi3D &vor, OutputFile &vis2DFile, OutputFile &vis3DFile, int vorCode) {
+    //Write voronoi visualisation to file
+
+    //Write voronoi frame and type
+    vis2DFile.write(xyzConfigs-1);
+    vis2DFile.write(vorCode);
+
+    //Calculate rings
+    VecF< VecR<double> > rings;
+    rings=vor.getProjectedRings();
+
+    //Write rings
+    for(int i=0; i<rings.n; ++i) vis2DFile.writeRowVector(rings[i]);
+
+    //Write all 3D faces
+    if(visVor3D){
+        vis3DFile.write(xyzConfigs-1);
+        vis3DFile.write(vorCode);
+        VecR< VecR<double> > faces;
+        VecF<double> zLimits;
+        faces=vor.getFaces(zLimits);
+        vis3DFile.writeRowVector(zLimits);
+        vis3DFile.write(faces.n);
+        for(int i=0; i<faces.n; ++i) vis3DFile.writeRowVector(faces[i]);
+    }
+}
+
+
+void HDMC::writeAnalysis(Logfile &logfile, OutputFile &vor2DFile, OutputFile &rad2DFile, OutputFile &vor3DFile,
+                         OutputFile &rad3DFile, OutputFile &diaFile) {
     //Write analysis results to files
 
     //RDF
@@ -1167,47 +1303,91 @@ void HDMC::writeAnalysis(Logfile &logfile, OutputFile &vorFile, OutputFile &radF
     }
 
     //Voronoi
-    if(vorCalc){
-        for(int i=0; i<vorSizesA.n; ++i) if(vorSizesA[i]>0) vorAreasA[i]/=vorSizesA[i];
-        vorAreasA[vorAreasA.n-1] /= analysisConfigs;
-        VecF<double> resA=networkAnalysis(vorSizesA,vorAdjs);
-        vorFile.writeRowVector(resA);
-        vorFile.writeRowVector(vorAreasA);
+    if(vorCalc2D){
+        for(int i=0; i<vor2DSizesA.n; ++i) if(vor2DSizesA[i]>0) vor2DAreasA[i]/=vor2DSizesA[i];
+        vor2DAreasA[vor2DAreasA.n-1] /= analysisConfigs;
+        VecF<double> resA=networkAnalysis(vor2DSizesA,vor2DAdjs);
+        vor2DFile.writeRowVector(resA);
+        vor2DFile.writeRowVector(vor2DAreasA);
         if(dispersity==2){
-            for(int i=0; i<vorSizesB.n; ++i) if(vorSizesB[i]>0) vorAreasB[i]/=vorSizesB[i];
-            vorAreasB[vorAreasB.n-1] /= analysisConfigs;
-            VecF<double> resB=networkAnalysis(vorSizesB,vorAdjs);
-            vorFile.writeRowVector(resB);
-            vorFile.writeRowVector(vorAreasB);
+            for(int i=0; i<vor2DSizesB.n; ++i) if(vor2DSizesB[i]>0) vor2DAreasB[i]/=vor2DSizesB[i];
+            vor2DAreasB[vor2DAreasB.n-1] /= analysisConfigs;
+            VecF<double> resB=networkAnalysis(vor2DSizesB,vor2DAdjs);
+            vor2DFile.writeRowVector(resB);
+            vor2DFile.writeRowVector(vor2DAreasB);
         }
         VecF<double> nn(6);
         for(int i=0; i<3; ++i){
-            if(vorNNCount[i]>0) nn[i]=vorNNSep[i]/vorNNCount[i];
-            nn[3+i]=double(vorNNCount[i])/analysisConfigs;
+            if(vor2DNNCount[i]>0) nn[i]=vor2DNNSep[i]/vor2DNNCount[i];
+            nn[3+i]=double(vor2DNNCount[i])/analysisConfigs;
         }
-        vorFile.writeRowVector(nn);
+        vor2DFile.writeRowVector(nn);
     }
 
     //Radical
-    if(radCalc){
-        for(int i=0; i<radSizesA.n; ++i) if(radSizesA[i]>0) radAreasA[i]/=radSizesA[i];
-        radAreasA[radAreasA.n-1] /= analysisConfigs;
-        VecF<double> resA=networkAnalysis(radSizesA,radAdjs);
-        radFile.writeRowVector(resA);
-        radFile.writeRowVector(radAreasA);
+    if(radCalc2D){
+        for(int i=0; i<rad2DSizesA.n; ++i) if(rad2DSizesA[i]>0) rad2DAreasA[i]/=rad2DSizesA[i];
+        rad2DAreasA[rad2DAreasA.n-1] /= analysisConfigs;
+        VecF<double> resA=networkAnalysis(rad2DSizesA,rad2DAdjs);
+        rad2DFile.writeRowVector(resA);
+        rad2DFile.writeRowVector(rad2DAreasA);
         if(dispersity==2){
-            for(int i=0; i<radSizesB.n; ++i) if(radSizesB[i]>0) radAreasB[i]/=radSizesB[i];
-            radAreasB[radAreasB.n-1] /= analysisConfigs;
-            VecF<double> resB=networkAnalysis(radSizesB,radAdjs);
-            radFile.writeRowVector(resB);
-            radFile.writeRowVector(radAreasB);
+            for(int i=0; i<rad2DSizesB.n; ++i) if(rad2DSizesB[i]>0) rad2DAreasB[i]/=rad2DSizesB[i];
+            rad2DAreasB[rad2DAreasB.n-1] /= analysisConfigs;
+            VecF<double> resB=networkAnalysis(rad2DSizesB,rad2DAdjs);
+            rad2DFile.writeRowVector(resB);
+            rad2DFile.writeRowVector(rad2DAreasB);
         }
         VecF<double> nn(6);
         for(int i=0; i<3; ++i){
-            if(radNNCount[i]>0) nn[i]=radNNSep[i]/radNNCount[i];
-            nn[3+i]=double(radNNCount[i])/analysisConfigs;
+            if(rad2DNNCount[i]>0) nn[i]=rad2DNNSep[i]/rad2DNNCount[i];
+            nn[3+i]=double(rad2DNNCount[i])/analysisConfigs;
         }
-        radFile.writeRowVector(nn);
+        rad2DFile.writeRowVector(nn);
+    }
+
+    //Voronoi
+    if(vorCalc3D){
+        for(int i=0; i<vor3DSizesA.n; ++i) if(vor3DSizesA[i]>0) vor3DAreasA[i]/=vor3DSizesA[i];
+        vor3DAreasA[vor3DAreasA.n-1] /= analysisConfigs;
+        VecF<double> resA=networkAnalysis(vor3DSizesA,vor3DAdjs);
+        vor3DFile.writeRowVector(resA);
+        vor3DFile.writeRowVector(vor3DAreasA);
+        if(dispersity==2){
+            for(int i=0; i<vor3DSizesB.n; ++i) if(vor3DSizesB[i]>0) vor3DAreasB[i]/=vor3DSizesB[i];
+            vor3DAreasB[vor3DAreasB.n-1] /= analysisConfigs;
+            VecF<double> resB=networkAnalysis(vor3DSizesB,vor3DAdjs);
+            vor3DFile.writeRowVector(resB);
+            vor3DFile.writeRowVector(vor3DAreasB);
+        }
+        VecF<double> nn(6);
+        for(int i=0; i<3; ++i){
+            if(vor3DNNCount[i]>0) nn[i]=vor3DNNSep[i]/vor3DNNCount[i];
+            nn[3+i]=double(vor3DNNCount[i])/analysisConfigs;
+        }
+        vor3DFile.writeRowVector(nn);
+    }
+
+    //Radical
+    if(radCalc3D){
+        for(int i=0; i<rad3DSizesA.n; ++i) if(rad3DSizesA[i]>0) rad3DAreasA[i]/=rad3DSizesA[i];
+        rad3DAreasA[rad3DAreasA.n-1] /= analysisConfigs;
+        VecF<double> resA=networkAnalysis(rad3DSizesA,rad3DAdjs);
+        rad3DFile.writeRowVector(resA);
+        rad3DFile.writeRowVector(rad3DAreasA);
+        if(dispersity==2){
+            for(int i=0; i<rad3DSizesB.n; ++i) if(rad3DSizesB[i]>0) rad3DAreasB[i]/=rad3DSizesB[i];
+            rad3DAreasB[rad3DAreasB.n-1] /= analysisConfigs;
+            VecF<double> resB=networkAnalysis(rad3DSizesB,rad3DAdjs);
+            rad3DFile.writeRowVector(resB);
+            rad3DFile.writeRowVector(rad3DAreasB);
+        }
+        VecF<double> nn(6);
+        for(int i=0; i<3; ++i){
+            if(rad3DNNCount[i]>0) nn[i]=rad3DNNSep[i]/rad3DNNCount[i];
+            nn[3+i]=double(rad3DNNCount[i])/analysisConfigs;
+        }
+        rad3DFile.writeRowVector(nn);
     }
 
     //Diameters

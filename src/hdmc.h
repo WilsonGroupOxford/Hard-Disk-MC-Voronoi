@@ -11,6 +11,7 @@
 #include "vecr.h"
 #include "vec_func.h"
 #include "voronoi2d.h"
+#include "voronoi3d.h"
 #include "pot2d.h"
 #include "opt.h"
 
@@ -26,7 +27,7 @@ public:
     VecF<double> dispersityParams; //dispersity parameters
     double phi; //packing fraction
     double cellLen,rCellLen,cellLen_2; //cell length, reciprocal and half
-    VecF<double> x,y,r,w; //particle x coords, y coords, radii and weights for radical voronoi
+    VecF<double> x,y,z,r,w; //particle x coords, y coords, z coords, radii and weights for radical voronoi
 
     //Random number generation
     mt19937 mtGen; //mersenne twister random generator
@@ -41,24 +42,31 @@ public:
 
     //Analysis and output parameters
     string outputPrefix; //output file path and prefix
-    bool xyzWrite,vorWrite,rdfCalc,rdfNorm,vorCalc,radCalc; //flags to write xyz/vor file, calculate and normalise RDF, calculate (radical) Voronoi
-    int xyzWriteFreq, vorWriteFreq, analysisFreq; //frequency of xyz/voronoi write and analysis
+    bool rdfCalc,rdfNorm; //RDF flags
+    bool vorCalc2D,radCalc2D,vorCalc3D,radCalc3D; //Voronoi type flags
+    bool visXYZ,visVor2D,visVor3D; //visualisation flags
+    int analysisFreq,visFreq; //frequency of analysis/visualisation
     int analysisConfigs, xyzConfigs; //number of analysis/xyz configurations
     double rdfDelta; //RDF bin width
     VecF<int> rdfHist,prdfHistAA,prdfHistAB,prdfHistBB; //RDF histogram
     int maxVertices; //set maximum on number of vertices
-    VecF<int> vorSizesA,vorSizesB,radSizesA,radSizesB; //voronoi/radical cell sizes
-    VecF< VecF<int> > vorAdjs,radAdjs; //voronoi/radical cell size adjacencies
-    VecF<double> vorAreasA,vorAreasB,radAreasA,radAreasB; //voronoi/radical cell areas by size
-    VecF<int> vorNNCount,radNNCount; //voronoi/radical nearest neighbour type count
-    VecF<double> vorNNSep,radNNSep; //voronoi/radical nearest neighbour separations
+    VecF<int> vor2DSizesA,vor2DSizesB,rad2DSizesA,rad2DSizesB; //voronoi/radical cell sizes
+    VecF<int> vor3DSizesA,vor3DSizesB,rad3DSizesA,rad3DSizesB; //voronoi/radical cell sizes
+    VecF< VecF<int> > vor2DAdjs,rad2DAdjs; //voronoi/radical cell size adjacencies
+    VecF< VecF<int> > vor3DAdjs,rad3DAdjs; //voronoi/radical cell size adjacencies
+    VecF<double> vor2DAreasA,vor2DAreasB,rad2DAreasA,rad2DAreasB; //voronoi/radical cell areas by size
+    VecF<double> vor3DAreasA,vor3DAreasB,rad3DAreasA,rad3DAreasB; //voronoi/radical cell areas by size
+    VecF<int> vor2DNNCount,rad2DNNCount; //voronoi/radical nearest neighbour type count
+    VecF<int> vor3DNNCount,rad3DNNCount; //voronoi/radical nearest neighbour type count
+    VecF<double> vor2DNNSep,rad2DNNSep; //voronoi/radical nearest neighbour separations
+    VecF<double> vor3DNNSep,rad3DNNSep; //voronoi/radical nearest neighbour separations
 
     //Constructor and setters
     HDMC();
     int setParticles(int num, double packFrac, int disp, VecF<double> dispParams, int interact); //set particle properties
     int setRandom(int seed); //set random number generation
     int setSimulation(int eq, int prod, double swap, double accTarg); //set simulation parameters
-    int setAnalysis(string path, int xyzFreq, int vorFreq, int anFreq, int rdf, double rdfDel, int vor); //set analysis parameters
+    int setAnalysis(string path, int anFreq, int rdf, double rdfDel, VecF<int> vor, int visF, int vis3); //set analysis parameters
 
     //Member functions
     int initialiseConfiguration(Logfile &logfile, double maxIt); //generate initial particle positions
@@ -68,19 +76,22 @@ public:
     bool resolvePositions(); //resolve overlaps using steepest descent minimisation
     int initAnalysis(); //initialise analysis tools
     void equilibration(Logfile &logfile, OutputFile &xyzFile); //equilibration Monte Carlo
-    void production(Logfile &logfile, OutputFile &xyzFile, OutputFile &vorFile, OutputFile &radFile, OutputFile &visFile); //production Monte Carlo
-    void analyseConfiguration(OutputFile &vorFile, OutputFile &radFile, OutputFile &visFile, bool vorWrite); //analyse current configuration
+    void production(Logfile &logfile, OutputFile &xyzFile, OutputFile &vor2DFile, OutputFile &rad2DFile, OutputFile &vor3DFile, OutputFile &rad3DFile, OutputFile &vis2DFile, OutputFile &vis3DFile); //production Monte Carlo
+    void analyseConfiguration(OutputFile &vor2DFile, OutputFile &rad2DFile, OutputFile &vor3DFile, OutputFile &rad3DFile, OutputFile &vis2DFile,  OutputFile &vis3DFile, bool vis); //analyse current configuration
     void calculateRDF(); //calculate RDF for current configuration
-    void calculateVoronoi(OutputFile &vorFile, OutputFile &visFile, bool vis); //calculate Voronoi and analyse
-    void calculateRadical(OutputFile &radFile, OutputFile &visFile, bool vis); //calculate Radical Voronoi and analyse
+    void calculateVoronoi2D(OutputFile &vor2DFile, OutputFile &visFile, bool vis); //calculate Voronoi and analyse
+    void calculateRadical2D(OutputFile &rad2DFile, OutputFile &visFile, bool vis); //calculate Radical Voronoi and analyse
+    void calculateVoronoi3D(OutputFile &vor3DFile, OutputFile &vis2DFile, OutputFile &vis3DFile, bool vis); //calculate Voronoi and analyse
+    void calculateRadical3D(OutputFile &rad3DFile, OutputFile &vis2DFile, OutputFile &vis3DFile, bool vis); //calculate Radical Voronoi and analyse
     VecF<double> networkAnalysis(VecF<int> &sizes, VecF< VecF<int> > &adjs); //network analysis of sizes
     int optimalDelta(double &deltaMin, double &deltaMax, double &accProb); //find optimal translational delta
     int mcCycle(); //set of n-particle Monte Carlo moves
     void mcAdditiveMove(int &counter); //single Monte Carlo move with additive distances
     void mcNonAdditiveMove(int &counter); //single Monte Carlo move with non-additive distances
     void writeXYZ(OutputFile &xyzFile); //write configuration to xyz file
-    void writeVor(Voronoi2D &vor, OutputFile &visFile, int vorCode); //write voronoi visualisation
-    void writeAnalysis(Logfile &logfile, OutputFile &vorFile, OutputFile &radFile, OutputFile &diaFile); //write analysis results to file
+    void writeVor(Voronoi2D &vor, OutputFile &vis2DFile, int vorCode); //write voronoi visualisation
+    void writeVor(Voronoi3D &vor, OutputFile &vis2DFile, OutputFile &vis3DFile, int vorCode); //write voronoi visualisation
+    void writeAnalysis(Logfile &logfile, OutputFile &vor2DFile, OutputFile &rad2DFile, OutputFile &vor3DFile, OutputFile &rad3DFile, OutputFile &diaFile); //write analysis results to file
 };
 
 

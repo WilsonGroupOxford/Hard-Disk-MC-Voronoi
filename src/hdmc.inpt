@@ -2,10 +2,10 @@ Hard Disc Monte Carlo (HDMC)
 ---------------------------------------
 Particle Parameters
 100     number of particles
-bi  particle dispersity (mono,bi,poly)
-10.0  4.0  0.5     dispersity parameters (radius;radius1,radius2,proportion1;radius mean, radius std)
-add     particle interactions (add,nonadd)
-0.5     total packing fraction
+poly  particle dispersity (mono,bi,poly)
+10.0  5.0  0.5     dispersity parameters (radius;radius1,radius2,proportion1;radius mean, radius std)
+nonadd     particle interactions (add,nonadd)
+0.6     total packing fraction
 ---------------------------------------
 Simulation Parameters
 0       random seed
@@ -15,14 +15,18 @@ Simulation Parameters
 0.1     swap probability
 0.5     target acceptance probability
 ---------------------------------------
-Analysis and Output
+Analysis
 ./output/test       path with run prefix for output files
-10       XYZ file write frequency (0=none)
-10       Voronoi file write frequency (0=none), must be multiple of analysis freq (and sensible to be same as XYZ freq)
 10     analysis frequency
 1       calculate RDF (0=none,1=normalised,2=unnormalised)
 0.02    RDF bin width
-3       calculate Voronoi (0=none,1=unweighted,2=weighted,3=both)
+1       2D Voronoi (0/1)
+1       2D Radical (0/1)
+0       3D Voronoi (0/1) [DISABLED FOR NOW]
+0       3D Radical (0/1), gives sames as 2D Voronoi, but with 3D visualisation
 ---------------------------------------
-
+Visualisation
+10      Visualisation file write frequency (0=none), must be multiple of analysis frequency
+1       Full 3D visualisation
+---------------------------------------
 

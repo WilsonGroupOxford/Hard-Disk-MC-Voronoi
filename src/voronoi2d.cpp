@@ -1,7 +1,7 @@
 #include "voronoi2d.h"
 
 
-Voronoi2D::Voronoi2D(VecF<double> &x, VecF<double> &y, VecF<double> &w, double cellLen_2, int numA, bool radical) {
+Voronoi2D::Voronoi2D(VecF<double> &x, VecF<double> &y, VecF<double> &w, double cellLen_2, int numA, bool rad) {
     //Initialise with x,y coordinates and radii
 
     //Make periodic container in xy
@@ -14,7 +14,8 @@ Voronoi2D::Voronoi2D(VecF<double> &x, VecF<double> &y, VecF<double> &w, double c
             blocks,blocks,1,true,true,false,n);
 
     //Add particles and radii if radical
-    if(radical){
+    radical=rad;
+    if(rad){
         for(int i=0; i<n; ++i) con->put(i,x[i],y[i],0.0,w[i]);
     }
     else{
@@ -50,6 +51,7 @@ void Voronoi2D::analyse(int maxSize, VecF<int> &cellSizeDistA, VecF<int> &cellSi
     for(int i=0; i<n; ++i){
         int sizeI=cellSizes[i];
         for(int j=0; j<cellNbs[i].n; ++j){
+//            cout<<cellNbs[i][j]<<" "<<cellSizes[cellNbs[i][j]]<<endl;
             int sizeJ=cellSizes[cellNbs[i][j]];
             ++cellAdjDist[sizeI][sizeJ];
             //Account for self interactions
@@ -118,6 +120,27 @@ void Voronoi2D::computeCells(int maxSize) {
 //        for(int i=0; i<cellNbs[id].n; ++i) if(cellNbs[id][i]<0) cellNbs[id][i]=id; //add self interaction
         cellAreas[id]=cell.volume()/dz;
     } while(looper.inc());
+
+    //For radical check for completely overlapped particles
+    if(radical){
+        //Overlaps manifest as self-interactions
+        VecR<int> overlapped(0,n);
+        for(int id=0; id<n; ++id){
+            for(int i=0; i<cellNbs[id].n; ++i){
+                if(cellNbs[id][i]<0) overlapped.addValue(id);
+            }
+        }
+        //Remove overlapped particles from neighbour measures
+        for(int i=0; i<overlapped.n; ++i){
+            int id=overlapped[i];
+            cellNbs[id]=VecR<int>(0,maxSize);
+            cellAreas[id]=0;
+            for(int j=0; j<n; ++j){
+                while(vContains(cellNbs[j],id)) cellNbs[j].delValue(id);
+            }
+        }
+
+    }
 }
 
 
@@ -135,42 +158,52 @@ void Voronoi2D::getRings(VecF<double> &x, VecF<double> &y, VecF< VecR<double> > 
     //Loop over each cell and extract rings
     do{
         int id=looper.pid(); //central id
-        voro::voronoicell_neighbor cell;
-        con->compute_cell(cell,looper);
-        //Find faces, normals and vertices
-        vector<int> faceSizes; //number of vertices in each face
-        cell.face_orders(faceSizes);
-        int numFaces=faceSizes.size(); //number of faces
-        vector<double> normals; //normals for each face (x,y,z)
-        cell.normals(normals);
-        int keyFace=-1; //id of face of interest
-        for(int i=0; i<numFaces; ++i){
-            if(fabs(normals[3*i+2]-1)<1e-12){
-                keyFace=i;
-                break;
-            }
-        }
-        vector<int> vertexIds; //ids of vertices that make up faces
-        cell.face_vertices(vertexIds);
-        vector<double> vertexCrds; //coordinates of vertices
-        cell.vertices(vertexCrds);
-        cell.vertices(x[id],y[id],0.0,vertexCrds);
-        //Extract vertices for face
-        VecR<int> keyVertexIds(0,100);
-        int k=0;
-        for(int i=0; i<numFaces; ++i){
-            if(i==keyFace){
-                for(int j=0; j<faceSizes[i]+1; ++j){
-                    keyVertexIds.addValue(vertexIds[k]);
-                    ++k;
+        //check that cell has non-zero neighbours (radical with full overlap)
+        if(cellNbs[id].n>0) {
+            voro::voronoicell_neighbor cell;
+            con->compute_cell(cell, looper);
+            //Find faces, normals and vertices
+            vector<int> faceSizes; //number of vertices in each face
+            cell.face_orders(faceSizes);
+            int numFaces = faceSizes.size(); //number of faces
+            vector<double> normals; //normals for each face (x,y,z)
+            cell.normals(normals);
+            int keyFace = -1; //id of face of interest
+            for (int i = 0; i < numFaces; ++i) {
+                if (fabs(normals[3 * i + 2] - 1) < 1e-12) {
+                    keyFace = i;
+                    break;
                 }
-                break;
             }
-            else k+=faceSizes[i]+1;
+            vector<int> vertexIds; //ids of vertices that make up faces
+            cell.face_vertices(vertexIds);
+            vector<double> vertexCrds; //coordinates of vertices
+            cell.vertices(vertexCrds);
+            cell.vertices(x[id], y[id], 0.0, vertexCrds);
+            //Extract vertices for face
+            VecR<int> keyVertexIds(0, 100);
+            int k = 0;
+            for (int i = 0; i < numFaces; ++i) {
+                if (i == keyFace) {
+                    for (int j = 0; j < faceSizes[i] + 1; ++j) {
+                        keyVertexIds.addValue(vertexIds[k]);
+                        ++k;
+                    }
+                    break;
+                } else k += faceSizes[i] + 1;
+            }
+            for (int i = 1; i < keyVertexIds.n; ++i) {//first index gives face size
+                rings[id].addValue(vertexCrds[3 * keyVertexIds[i]]);
+                rings[id].addValue(vertexCrds[3 * keyVertexIds[i] + 1]);
+            }
         }
-        for(int i=1; i<keyVertexIds.n; ++i){//first index gives face size
-            rings[id].addValue(vertexCrds[3*keyVertexIds[i]]);
-            rings[id].addValue(vertexCrds[3*keyVertexIds[i]+1]);
+        else{
+            //Add placeholder ring
+            rings[id]=VecR<double>(0,6);
+            for(int i=0; i<3; ++i){
+                rings[id].addValue(x[id]);
+                rings[id].addValue(y[id]);
+            }
         }
     } while(looper.inc());
 }

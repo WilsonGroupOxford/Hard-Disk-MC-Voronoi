@@ -105,22 +105,17 @@ int main(int argc, char **argv) {
     istringstream(line)>>accTarget;
     logfile.write("Target acceptance probability:",accTarget);
     --logfile.currIndent;
-    //Analysis and output parameters
-    logfile.write("Reading analysis and output parameters");
+    //Analysis parameters
+    logfile.write("Reading analysis parameters");
     ++logfile.currIndent;
     for(int i=0; i<2; ++i) getline(inputFile,skip);
     string outputPrefix;
-    int xyzWriteFreq,vorWriteFreq,analysisFreq,rdfAnalysis,vorAnalysis;
+    int analysisFreq,rdfAnalysis;
     double rdfDelta;
+    VecF<int> vorAnalysis(4);
     getline(inputFile,line);
     istringstream(line)>>outputPrefix;
     logfile.write("Output prefix:",outputPrefix);
-    getline(inputFile,line);
-    istringstream(line)>>xyzWriteFreq;
-    logfile.write("XYZ file write frequency (cycles):",xyzWriteFreq);
-    getline(inputFile,line);
-    istringstream(line)>>vorWriteFreq;
-    logfile.write("Voronoi file write frequency (cycles):",vorWriteFreq);
     getline(inputFile,line);
     istringstream(line)>>analysisFreq;
     logfile.write("Analysis frequency (cycles):",analysisFreq);
@@ -130,9 +125,27 @@ int main(int argc, char **argv) {
     getline(inputFile,line);
     istringstream(line)>>rdfDelta;
     logfile.write("Radial distribution function bin width:",rdfDelta);
+    for(int i=0; i<vorAnalysis.n; ++i){
+        getline(inputFile,line);
+        istringstream(line)>>vorAnalysis[i];
+    }
+    logfile.write("2D Voronoi analysis:",vorAnalysis[0]);
+    logfile.write("2D Radical analysis:",vorAnalysis[1]);
+    logfile.write("3D Voronoi analysis:",vorAnalysis[2]); //Disabled as will give errors when no ring contribution
+    logfile.write("3D Radical analysis:",vorAnalysis[2]);
+    --logfile.currIndent;
+    //Visualisation parameters
+    logfile.write("Reading analysis parameters");
+    ++logfile.currIndent;
+    for(int i=0; i<2; ++i) getline(inputFile,skip);
+    int visFreq;
+    int vis3D;
     getline(inputFile,line);
-    istringstream(line)>>vorAnalysis;
-    logfile.write("Voronoi analysis:",vorAnalysis);
+    istringstream(line)>>visFreq;
+    logfile.write("Visualisation frequency (cycles):",visFreq);
+    getline(inputFile,line);
+    istringstream(line)>>vis3D;
+    logfile.write("Visualisation frequency (cycles):",vis3D);
     logfile.currIndent-=2;
     logfile.separator();
 
@@ -146,25 +159,28 @@ int main(int argc, char **argv) {
     logfile.write("Random number generators initialised");
     simulation.setSimulation(eqCycles,prodCycles,swapProb,accTarget);
     logfile.write("Simulation parameters set");
-    simulation.setAnalysis(outputPrefix,xyzWriteFreq,vorWriteFreq,analysisFreq,rdfAnalysis,rdfDelta,vorAnalysis);
+    simulation.setAnalysis(outputPrefix,analysisFreq,rdfAnalysis,rdfDelta,vorAnalysis,visFreq,vis3D);
     logfile.write("Analysis and write parameters set");
     --logfile.currIndent;
     logfile.separator();
 
     //Set up output files
     OutputFile xyzFile(outputPrefix+".xyz");
-    OutputFile vorFile(outputPrefix+"_vor.dat");
-    OutputFile radFile(outputPrefix+"_rad.dat");
-    OutputFile visFile(outputPrefix+"_vis.dat");
+    OutputFile vor2DFile(outputPrefix+"_vor2d.dat");
+    OutputFile rad2DFile(outputPrefix+"_rad2d.dat");
+    OutputFile vor3DFile(outputPrefix+"_vor3d.dat");
+    OutputFile rad3DFile(outputPrefix+"_rad3d.dat");
+    OutputFile vis2DFile(outputPrefix+"_vis2d.dat");
+    OutputFile vis3DFile(outputPrefix+"_vis3d.dat");
     OutputFile diaFile(outputPrefix+"_dia.dat");
 
     //Run Monte Carlo simulation (xyz written only for production atm)
     simulation.initialiseConfiguration(logfile,rsaIt);
     simulation.equilibration(logfile,xyzFile);
-    simulation.production(logfile,xyzFile,vorFile,radFile,visFile);
+    simulation.production(logfile,xyzFile,vor2DFile,rad2DFile,vor3DFile,rad3DFile,vis2DFile,vis3DFile);
 
     //Write analysis to files
-    simulation.writeAnalysis(logfile,vorFile,radFile,diaFile);
+    simulation.writeAnalysis(logfile,vor2DFile,rad2DFile,vor3DFile,rad3DFile,diaFile);
 
     return 0;
 }
