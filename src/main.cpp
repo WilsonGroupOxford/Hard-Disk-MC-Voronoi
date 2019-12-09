@@ -113,6 +113,7 @@ int main(int argc, char **argv) {
     int analysisFreq,rdfAnalysis;
     double rdfDelta;
     VecF<int> vorAnalysis(4);
+    double rad2DCut;
     getline(inputFile,line);
     istringstream(line)>>outputPrefix;
     logfile.write("Output prefix:",outputPrefix);
@@ -133,6 +134,9 @@ int main(int argc, char **argv) {
     logfile.write("2D Radical analysis:",vorAnalysis[1]);
     logfile.write("3D Voronoi analysis:",vorAnalysis[2]); //Disabled as will give errors when no ring contribution
     logfile.write("3D Radical analysis:",vorAnalysis[2]);
+    getline(inputFile,line);
+    istringstream(line)>>rad2DCut;
+    logfile.write("2D radical cut parameter:",rad2DCut);
     --logfile.currIndent;
     //Visualisation parameters
     logfile.write("Reading analysis parameters");
@@ -159,7 +163,7 @@ int main(int argc, char **argv) {
     logfile.write("Random number generators initialised");
     simulation.setSimulation(eqCycles,prodCycles,swapProb,accTarget);
     logfile.write("Simulation parameters set");
-    simulation.setAnalysis(outputPrefix,analysisFreq,rdfAnalysis,rdfDelta,vorAnalysis,visFreq,vis3D);
+    simulation.setAnalysis(outputPrefix,analysisFreq,rdfAnalysis,rdfDelta,vorAnalysis,rad2DCut,visFreq,vis3D);
     logfile.write("Analysis and write parameters set");
     --logfile.currIndent;
     logfile.separator();

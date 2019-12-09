@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import matplotlib.pylab as pylab
 from matplotlib.patches import Circle, Polygon
 from matplotlib.collections import PatchCollection
+from matplotlib import cm
+from matplotlib.colors import ListedColormap, LinearSegmentedColormap, Normalize
 
 """
 Visualise hard disk Monte Carlo simulation.
@@ -80,8 +82,10 @@ class Visualisation:
                 while True:
                     frame = int(f.readline().split()[0])
                     vor_type = int(f.readline().split()[0])
+                    self.param = float(f.readline().split()[0])
+                    self.m = int(f.readline().split()[0])
                     if frame==self.frame and vor_type==self.vis_vortype:
-                        for i in range(self.n):
+                        for i in range(self.m):
                             ring = np.array([float(c) for c in f.readline().split()])
                             self.rings.append(ring.reshape(ring.shape[0]//2,2))
                         break
@@ -90,8 +94,10 @@ class Visualisation:
                             f.readline()
 
         # Read diameter file
-        print('Reading simulation radii file')
-        self.radii = np.genfromtxt('{}_dia.dat'.format(self.prefix)).astype(float)/2.0
+        print('Reading simulation radii and weights file')
+        data = np.genfromtxt('{}_dia.dat'.format(self.prefix)).astype(float)
+        self.radii = data[:self.n]/2
+        self.weights = data[self.n:]
 
 
     def visualise(self):
@@ -104,21 +110,56 @@ class Visualisation:
         self.ax = self.fig.add_subplot(111)
 
         # Add particles if selected
+        cmap=cm.get_cmap('coolwarm')
+        norm=Normalize(0,20)
+        print(np.max(self.radii))
+        print(np.max(self.weights))
         if self.vis_particles:
+            if self.vis_vortype==2:
+                radii=self.weights
+            else:
+                radii=self.radii
             patches = []
             patches_pnts = []
             for i,c in enumerate(self.crds):
-                patches.append(Circle(c,radius=self.radii[i]))
-                patches_pnts.append(Circle(c,radius=1))
-            self.ax.add_collection(PatchCollection(patches, facecolor='blue', alpha=0.5))
-            self.ax.add_collection(PatchCollection(patches_pnts, facecolor='k', alpha=1.0))
+                patches.append(Circle(c,radius=radii[i]))
+                if radii[i]>0:
+                    patches_pnts.append(Circle(c,radius=1))
+            self.ax.add_collection(PatchCollection(patches, facecolor=cmap(norm(self.param)), edgecolor='k', alpha=0.5))
+            self.ax.add_collection(PatchCollection(patches_pnts, facecolor='k', alpha=1))
 
         # Add voronoi
         if self.vis_vortype!=0:
             patches = []
-            for i in range(self.n):
+            for i in range(self.m):
                 patches.append(Polygon(self.rings[i],True))
             self.ax.add_collection(PatchCollection(patches, facecolor=(0, 0, 0, 0), edgecolor='k'))
+
+        # Sandbox
+        # print(np.max(self.radii))
+        # cmap=cm.get_cmap('coolwarm')
+        # norm=Normalize(0,np.max(20))
+        # sandbox=True
+        # if sandbox:
+        #     z=16
+        #     w=np.zeros_like(self.radii)
+        #     mask=2*self.radii>z
+        #     w[mask]=z**0.5*np.sqrt(2*self.radii[mask]-z)
+        #     patches = []
+        #     for i,c in enumerate(self.crds):
+        #         patches.append(Circle(c,radius=w[i]))
+        #     self.ax.add_collection(PatchCollection(patches, facecolor=cmap(norm(z)), edgecolor='k'))
+        #     with open('./phi.dat','w') as f:
+        #         for z in np.arange(0,np.max(self.radii)*2+0.5,0.01):
+        #             w=np.zeros_like(self.radii)
+        #             mask=2*self.radii>z
+        #             w[mask]=z**0.5*np.sqrt(2*self.radii[mask]-z)
+        #             phi=np.sum(np.pi*w**2)/52359.9
+        #             f.write('{:.6f} {:.6f}\n'.format(z,phi))
+
+
+
+
 
     #     # Add polygons if selected
     #     if self.vis_polygons:

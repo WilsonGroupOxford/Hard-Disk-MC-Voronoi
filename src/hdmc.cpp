@@ -67,7 +67,7 @@ int HDMC::setSimulation(int eq, int prod, double swap, double accTarg) {
 }
 
 
-int HDMC::setAnalysis(string path, int anFreq, int rdf, double rdfDel, VecF<int> vor, int visF, int vis3) {
+int HDMC::setAnalysis(string path, int anFreq, int rdf, double rdfDel, VecF<int> vor, double radCut, int visF, int vis3) {
     //Set analysis parameters
 
     outputPrefix=path;
@@ -109,6 +109,7 @@ int HDMC::setAnalysis(string path, int anFreq, int rdf, double rdfDel, VecF<int>
     if(vor[1]==1) radCalc2D=true;
     if(vor[2]==1) vorCalc3D=true;
     if(vor[3]==1) radCalc3D=true;
+    rad2DCut=radCut;
     maxVertices=21;
 
     return 0;
@@ -204,24 +205,19 @@ int HDMC::initialiseConfiguration(Logfile &logfile, double maxIt) {
     rCellLen=1.0/cellLen;
     cellLen_2=cellLen/2.0;
 
-    //Generate particle radii and weights
+    //Generate particle radii
     if(dispersity==1){
         r=dispersityParams[0];
-        w=dispersityParams[0];
     }
     else if(dispersity==2){
         double rA,rB,wA,wB;
         rA=dispersityParams[0];
         rB=dispersityParams[1];
-        wA=rA;
-        wB=rB;
         for(int i=0; i<nA; ++i){
             r[i]=rA;
-            w[i]=wA;
         }
         for(int i=nA; i<n; ++i){
             r[i]=rB;
-            w[i]=wB;
         }
     }
     else if(dispersity==3){
@@ -235,8 +231,22 @@ int HDMC::initialiseConfiguration(Logfile &logfile, double maxIt) {
             }
             r[i]=randR;
         }
-        w=r;
     }
+
+    //Generate weights for 2D Radical
+    rad2DInclude=VecF<bool>(n);
+    for(int i=0; i<r.n; ++i){
+        if(2*r[i]<rad2DCut){
+            w[i]=0.0;
+            rad2DInclude[i]=false;
+        }
+        else{
+            w[i]=pow(2*rad2DCut*r[i]-rad2DCut*rad2DCut,0.5);
+            rad2DInclude[i]=true;
+        }
+    }
+    cout<<"+++ "<<vSum(rad2DInclude)<<endl;
+
 
     //Generate initial configuration
     bool success;
@@ -957,7 +967,7 @@ void HDMC::calculateVoronoi2D(OutputFile &vor2DFile, OutputFile &vis2DFile, bool
     VecF<int> cellSizeDistA,cellSizeDistB,nnCount;
     VecF<VecF<int> > cellAdjDist;
     VecF<double> cellAreaA,cellAreaB,nnSep;
-    Voronoi2D vor(x, y, r, cellLen_2, nA, false);
+    Voronoi2D vor(x, y, r, cellLen_2, nA, false, VecF<bool>(0), maxVertices);
     vor.analyse(maxVertices, cellSizeDistA, cellSizeDistB, cellAdjDist, cellAreaA, cellAreaB);
     vor.nnDistances(x,y,cellLen,rCellLen,nnSep,nnCount);
 
@@ -1004,7 +1014,7 @@ void HDMC::calculateRadical2D(OutputFile &rad2DFile, OutputFile &vis2DFile, bool
     VecF<int> cellSizeDistA,cellSizeDistB,nnCount;
     VecF<VecF<int> > cellAdjDist;
     VecF<double> cellAreaA,cellAreaB,nnSep;
-    Voronoi2D rad(x, y, w, cellLen_2, nA, true);
+    Voronoi2D rad(x, y, w, cellLen_2, nA, true, rad2DInclude, maxVertices);
     rad.analyse(maxVertices, cellSizeDistA, cellSizeDistB, cellAdjDist, cellAreaA, cellAreaB);
     rad.nnDistances(x,y,cellLen,rCellLen,nnSep,nnCount);
 
@@ -1040,7 +1050,7 @@ void HDMC::calculateRadical2D(OutputFile &rad2DFile, OutputFile &vis2DFile, bool
     rad2DFile.writeRowVector(nn);
 
     //Write radical visualisation
-    if(vis) writeVor(rad,vis2DFile,2);
+    if(vis) writeVor(rad,vis2DFile,2,rad2DCut);
 }
 
 
@@ -1187,34 +1197,38 @@ void HDMC::writeXYZ(OutputFile &xyzFile) {
 }
 
 
-void HDMC::writeVor(Voronoi2D &vor, OutputFile &vis2DFile, int vorCode) {
+void HDMC::writeVor(Voronoi2D &vor, OutputFile &vis2DFile, int vorCode, double param) {
     //Write voronoi visualisation to file
 
-    //Write voronoi frame and type
+    //Write voronoi frame, type and additional parameter
     vis2DFile.write(xyzConfigs-1);
     vis2DFile.write(vorCode);
+    vis2DFile.write(param);
 
     //Calculate rings
     VecF< VecR<double> > rings;
     vor.getRings(x,y,rings);
 
     //Write rings
+    vis2DFile.write(rings.n);
     for(int i=0; i<rings.n; ++i) vis2DFile.writeRowVector(rings[i]);
 }
 
 
-void HDMC::writeVor(Voronoi3D &vor, OutputFile &vis2DFile, OutputFile &vis3DFile, int vorCode) {
+void HDMC::writeVor(Voronoi3D &vor, OutputFile &vis2DFile, OutputFile &vis3DFile, int vorCode, double param) {
     //Write voronoi visualisation to file
 
-    //Write voronoi frame and type
+    //Write voronoi frame, type and additional parameter
     vis2DFile.write(xyzConfigs-1);
     vis2DFile.write(vorCode);
+    vis2DFile.write(param);
 
     //Calculate rings
     VecF< VecR<double> > rings;
     rings=vor.getProjectedRings();
 
     //Write rings
+    vis2DFile.write(rings.n);
     for(int i=0; i<rings.n; ++i) vis2DFile.writeRowVector(rings[i]);
 
     //Write all 3D faces
@@ -1390,6 +1404,8 @@ void HDMC::writeAnalysis(Logfile &logfile, OutputFile &vor2DFile, OutputFile &ra
         rad3DFile.writeRowVector(nn);
     }
 
-    //Diameters
+    //Diameters and weights
     for(int i=0; i<n; ++i) diaFile.write(2.0*r[i]);
+    for(int i=0; i<n; ++i) diaFile.write(w[i]);
+
 }

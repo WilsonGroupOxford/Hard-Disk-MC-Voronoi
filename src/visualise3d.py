@@ -109,9 +109,21 @@ class Visualisation:
         self.ax = Axes3D(fig)
         self.ax.set_axis_off()
 
+        # selection = np.arange(self.n)
+        # selection = selection[(np.abs(self.crds[:,0])<10)*(np.abs(self.crds[:,1]<10))]
+        # print(selection)
+        selection = []
+
         # Add particles if selected
-        # if self.vis_particles:
-        #     self.ax.scatter(self.crds[:,0],self.crds[:,1],self.crds[:,2], color="r")
+        if self.vis_particles:
+            for i in range(self.n):
+                if i in selection:
+                    u = np.linspace(0, 2 * np.pi, 100)
+                    v = np.linspace(0, np.pi, 100)
+                    x = self.radii[i]*np.outer(np.cos(u), np.sin(v))+self.crds[i,0]
+                    y = self.radii[i]*np.outer(np.sin(u), np.sin(v))+self.crds[i,1]
+                    z = self.radii[i]*np.outer(np.ones(np.size(u)),np.cos(v))+self.crds[i,2]
+                    self.ax.plot_surface(x,y,z,rstride=4,cstride=4,color='b')
 
         # Add voronoi
         if self.vis_vortype!=0:
@@ -122,7 +134,6 @@ class Visualisation:
                     colour = 'b'
                 else:
                     colour = 'w'
-
                 # self.ax.add_collection3d(Poly3DCollection([self.rings[i]],facecolor=(0,0,0,0),edgecolor="k"))
                 self.ax.add_collection3d(Poly3DCollection([self.rings[i]],facecolor=colour,edgecolor="k"))
 
@@ -174,12 +185,13 @@ class Visualisation:
     #
     #
         # Set axes
-        buffer = 1.5
+        buffer = 1.2
         lim = buffer*np.max(np.abs(self.crds))
         self.ax.set_xlim((-lim,lim))
         self.ax.set_ylim((-lim,lim))
         self.ax.set_zlim((-lim,lim))
         self.ax.set_axis_off()
+        self.ax.view_init(-150,-80)
 
         # Show figure
         plt.savefig('vis.png',dpi=400)

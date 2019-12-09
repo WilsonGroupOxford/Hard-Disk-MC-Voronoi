@@ -27,7 +27,9 @@ public:
     VecF<double> dispersityParams; //dispersity parameters
     double phi; //packing fraction
     double cellLen,rCellLen,cellLen_2; //cell length, reciprocal and half
+    double rad2DCut; //cut for 2D radical voronoi
     VecF<double> x,y,z,r,w; //particle x coords, y coords, z coords, radii and weights for radical voronoi
+    VecF<bool> rad2DInclude; //particles to include for radical tessellation
 
     //Random number generation
     mt19937 mtGen; //mersenne twister random generator
@@ -66,7 +68,7 @@ public:
     int setParticles(int num, double packFrac, int disp, VecF<double> dispParams, int interact); //set particle properties
     int setRandom(int seed); //set random number generation
     int setSimulation(int eq, int prod, double swap, double accTarg); //set simulation parameters
-    int setAnalysis(string path, int anFreq, int rdf, double rdfDel, VecF<int> vor, int visF, int vis3); //set analysis parameters
+    int setAnalysis(string path, int anFreq, int rdf, double rdfDel, VecF<int> vor, double radCut, int visF, int vis3); //set analysis parameters
 
     //Member functions
     int initialiseConfiguration(Logfile &logfile, double maxIt); //generate initial particle positions
@@ -89,8 +91,8 @@ public:
     void mcAdditiveMove(int &counter); //single Monte Carlo move with additive distances
     void mcNonAdditiveMove(int &counter); //single Monte Carlo move with non-additive distances
     void writeXYZ(OutputFile &xyzFile); //write configuration to xyz file
-    void writeVor(Voronoi2D &vor, OutputFile &vis2DFile, int vorCode); //write voronoi visualisation
-    void writeVor(Voronoi3D &vor, OutputFile &vis2DFile, OutputFile &vis3DFile, int vorCode); //write voronoi visualisation
+    void writeVor(Voronoi2D &vor, OutputFile &vis2DFile, int vorCode, double param=0.0); //write voronoi visualisation
+    void writeVor(Voronoi3D &vor, OutputFile &vis2DFile, OutputFile &vis3DFile, int vorCode, double param=0.0); //write voronoi visualisation
     void writeAnalysis(Logfile &logfile, OutputFile &vor2DFile, OutputFile &rad2DFile, OutputFile &vor3DFile, OutputFile &rad3DFile, OutputFile &diaFile); //write analysis results to file
 };
 

@@ -1,7 +1,7 @@
 #include "voronoi2d.h"
 
 
-Voronoi2D::Voronoi2D(VecF<double> &x, VecF<double> &y, VecF<double> &w, double cellLen_2, int numA, bool rad) {
+Voronoi2D::Voronoi2D(VecF<double> &x, VecF<double> &y, VecF<double> &w, double cellLen_2, int numA, bool rad, VecF<bool> radInc, int maxV) {
     //Initialise with x,y coordinates and radii
 
     //Make periodic container in xy
@@ -10,30 +10,50 @@ Voronoi2D::Voronoi2D(VecF<double> &x, VecF<double> &y, VecF<double> &w, double c
     nB=n-nA;
     int blocks=sqrt(n);
     dz=cellLen_2*2;
+    pbc=cellLen_2*2;
+    rpbc=1.0/pbc;
     con=make_shared<voro::container_poly>(-cellLen_2,cellLen_2,-cellLen_2,cellLen_2,-cellLen_2,cellLen_2,
             blocks,blocks,1,true,true,false,n);
 
-    //Add particles and radii if radical
+    //Add particles and weights if radical
     radical=rad;
     if(rad){
-        for(int i=0; i<n; ++i) con->put(i,x[i],y[i],0.0,w[i]);
+        //Only use included particles, recalculating number of particles
+        int niA=0,ni=0;
+        for(int i=0; i<nA; ++i){
+            if(radInc[i]){
+                con->put(niA,x[i],y[i],0.0,w[i]);
+                idMap[niA]=i;
+                ++niA;
+            }
+        }
+        ni=niA;
+        for(int i=nA; i<n; ++i){
+            if(radInc[i]){
+                con->put(i,x[i],y[i],0.0,w[i]);
+                idMap[ni]=i;
+                ++ni;
+            }
+        }
+        nA=niA;
+        n=ni;
+        nB=n-niA;
     }
     else{
-        for(int i=0; i<n; ++i) con->put(i,x[i],y[i],0.0,0.0);
+        for(int i=0; i<n; ++i){
+            con->put(i,x[i],y[i],0.0,0.0);
+            idMap[i]=i;
+        }
     }
 
-//    voro::container testvor(-cellLen_2,cellLen_2,-cellLen_2,cellLen_2,-0.5,0.5,10,10,1,true,true,false,1);
-//    for(int i=0; i<n; ++i) testvor.put(i,x[i],y[i],0.0);
-//    testvor.print_custom("%t","./t.tmp");
+    //Calculate cells
+    computeCells(x,y,w,maxV);
 }
 
 
 void Voronoi2D::analyse(int maxSize, VecF<int> &cellSizeDistA, VecF<int> &cellSizeDistB, VecF<VecF<int> > &cellAdjDist,
                       VecF<double> &cellAreaA, VecF<double> &cellAreaB) {
     //Analyse Voronoi cell sizes and adjacencies
-
-    //Compute cell neighbours
-    computeCells(maxSize);
 
     //Calculate cell sizes and size distribution
     VecF<int> cellSizes(n);
@@ -93,7 +113,7 @@ void Voronoi2D::nnDistances(VecF<double> &x, VecF<double> &y, double cellLen, do
 }
 
 
-void Voronoi2D::computeCells(int maxSize) {
+void Voronoi2D::computeCells(VecF<double> &x, VecF<double> &y, VecF<double> &w, int maxV) {
     //Calculate neighbouring particles for each particle, and area of cells
 
     //Make looper
@@ -102,7 +122,7 @@ void Voronoi2D::computeCells(int maxSize) {
 
     //Resize neighbour vectors
     cellNbs=VecF< VecR<int> >(n);
-    for(int i=0; i<n; ++i) cellNbs[i]=VecR<int>(0,maxSize);
+    for(int i=0; i<n; ++i) cellNbs[i]=VecR<int>(0,maxV);
     cellAreas=VecF<double>(n);
 
     //Loop over each cell and extract neighbour ids
@@ -120,27 +140,6 @@ void Voronoi2D::computeCells(int maxSize) {
 //        for(int i=0; i<cellNbs[id].n; ++i) if(cellNbs[id][i]<0) cellNbs[id][i]=id; //add self interaction
         cellAreas[id]=cell.volume()/dz;
     } while(looper.inc());
-
-    //For radical check for completely overlapped particles
-    if(radical){
-        //Overlaps manifest as self-interactions
-        VecR<int> overlapped(0,n);
-        for(int id=0; id<n; ++id){
-            for(int i=0; i<cellNbs[id].n; ++i){
-                if(cellNbs[id][i]<0) overlapped.addValue(id);
-            }
-        }
-        //Remove overlapped particles from neighbour measures
-        for(int i=0; i<overlapped.n; ++i){
-            int id=overlapped[i];
-            cellNbs[id]=VecR<int>(0,maxSize);
-            cellAreas[id]=0;
-            for(int j=0; j<n; ++j){
-                while(vContains(cellNbs[j],id)) cellNbs[j].delValue(id);
-            }
-        }
-
-    }
 }
 
 
@@ -158,6 +157,7 @@ void Voronoi2D::getRings(VecF<double> &x, VecF<double> &y, VecF< VecR<double> > 
     //Loop over each cell and extract rings
     do{
         int id=looper.pid(); //central id
+        int origId=idMap.at(id); //corresponding original id
         //check that cell has non-zero neighbours (radical with full overlap)
         if(cellNbs[id].n>0) {
             voro::voronoicell_neighbor cell;
@@ -179,7 +179,7 @@ void Voronoi2D::getRings(VecF<double> &x, VecF<double> &y, VecF< VecR<double> > 
             cell.face_vertices(vertexIds);
             vector<double> vertexCrds; //coordinates of vertices
             cell.vertices(vertexCrds);
-            cell.vertices(x[id], y[id], 0.0, vertexCrds);
+            cell.vertices(x[origId], y[origId], 0.0, vertexCrds);
             //Extract vertices for face
             VecR<int> keyVertexIds(0, 100);
             int k = 0;
