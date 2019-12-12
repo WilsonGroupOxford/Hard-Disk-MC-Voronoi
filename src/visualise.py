@@ -44,6 +44,8 @@ class Visualisation:
             f.readline()
             self.vis_particles = int(f.readline().split()[0])
             self.vis_vortype = int(f.readline().split()[0])
+            self.vis_cellcolour = int(f.readline().split()[0])
+            self.vis_save = int(f.readline().split()[0])
 
 
     def read_simulation_files(self):
@@ -90,7 +92,7 @@ class Visualisation:
                             self.rings.append(ring.reshape(ring.shape[0]//2,2))
                         break
                     else:
-                        for i in range(self.n):
+                        for i in range(self.m):
                             f.readline()
 
         # Read diameter file
@@ -117,30 +119,40 @@ class Visualisation:
         if self.vis_particles:
             if self.vis_vortype==2:
                 radii=self.weights
+                if self.param>10:
+                    self.param=(self.param-10)/2+10
+                colour=cmap(norm(self.param))
             else:
                 radii=self.radii
+                colour='orange'
             patches = []
             patches_pnts = []
             for i,c in enumerate(self.crds):
                 patches.append(Circle(c,radius=radii[i]))
                 if radii[i]>0:
                     patches_pnts.append(Circle(c,radius=1))
-            self.ax.add_collection(PatchCollection(patches, facecolor=cmap(norm(self.param)), edgecolor='k', alpha=0.5))
-            self.ax.add_collection(PatchCollection(patches_pnts, facecolor='k', alpha=1))
+            self.ax.add_collection(PatchCollection(patches, facecolor=colour, edgecolor='k', alpha=0.5))
+            self.ax.add_collection(PatchCollection(patches_pnts, facecolor='k', alpha=1,zorder=1))
 
         # Add voronoi
         if self.vis_vortype!=0:
             patches = []
+            colours = []
+            if self.vis_cellcolour==1:
+                cell_colours = self.init_cell_colours()
+            else:
+                cell_colours = [(0,0,0,0)]*100
             for i in range(self.m):
                 patches.append(Polygon(self.rings[i],True))
-            self.ax.add_collection(PatchCollection(patches, facecolor=(0, 0, 0, 0), edgecolor='k'))
+                colours.append(cell_colours[self.rings[i][:,0].size])
+            self.ax.add_collection(PatchCollection(patches, facecolor=colours, edgecolor='k',zorder=0))
 
         # Sandbox
         # print(np.max(self.radii))
         # cmap=cm.get_cmap('coolwarm')
         # norm=Normalize(0,np.max(20))
-        # sandbox=True
-        # if sandbox:
+        sandbox=False
+        if sandbox:
         #     z=16
         #     w=np.zeros_like(self.radii)
         #     mask=2*self.radii>z
@@ -149,65 +161,17 @@ class Visualisation:
         #     for i,c in enumerate(self.crds):
         #         patches.append(Circle(c,radius=w[i]))
         #     self.ax.add_collection(PatchCollection(patches, facecolor=cmap(norm(z)), edgecolor='k'))
-        #     with open('./phi.dat','w') as f:
-        #         for z in np.arange(0,np.max(self.radii)*2+0.5,0.01):
-        #             w=np.zeros_like(self.radii)
-        #             mask=2*self.radii>z
-        #             w[mask]=z**0.5*np.sqrt(2*self.radii[mask]-z)
-        #             phi=np.sum(np.pi*w**2)/52359.9
-        #             f.write('{:.6f} {:.6f}\n'.format(z,phi))
+            with open('./phi.dat','w') as f:
+                for z in np.arange(0,np.max(self.radii)*2+0.5,0.01):
+                    w=np.zeros_like(self.radii)
+                    mask=2*self.radii>z
+                    w[mask]=z**0.5*np.sqrt(2*self.radii[mask]-z)
+                    phi=np.sum(np.pi*w**2)/52359.9
+                    # phi=np.sum(np.pi*w**2)/1309
+                    f.write('{:.6f} {:.6f}\n'.format(z,phi))
 
 
 
-
-
-    #     # Add polygons if selected
-    #     if self.vis_polygons:
-    #         if self.voronoi is not None:
-    #             patches_p = []
-    #             for i in range(self.n):
-    #                 p = self.voronoi.power_polygons[i]
-    #                 if p.size > 0:
-    #                     patches_p.append(Polygon(self.voronoi.power_crds[p], True))
-    #             self.ax.add_collection(PatchCollection(patches_p, facecolor=(0, 0, 0, 0), edgecolor='grey'))
-    #         if self.power is not None:
-    #             patches_p = []
-    #             for i in range(self.n):
-    #                 p = self.power.power_polygons[i]
-    #                 if p.size > 0:
-    #                     patches_p.append(Polygon(self.power.power_crds[p], True))
-    #             self.ax.add_collection(PatchCollection(patches_p, facecolor=(0, 0, 0, 0), edgecolor='k'))
-    #
-    #     # Add size labels if selected
-    #     if self.vis_sizelabel:
-    #         if self.voronoi is not None and self.power is None:
-    #             for i in range(self.n):
-    #                 p = self.voronoi.power_polygons[i]
-    #                 if p.size>0:
-    #                     label_x = self.voronoi.crds[i,0]
-    #                     label_y = self.voronoi.crds[i,1]
-    #                     label=p.size
-    #                     self.ax.text(label_x,label_y,label,size=5,ha='center',va='center')
-    #         elif self.power is not None and self.voronoi is None:
-    #             for i in range(self.n):
-    #                 p = self.power.power_polygons[i]
-    #                 if p.size>0:
-    #                     label_x = self.power.crds[i,0]
-    #                     label_y = self.power.crds[i,1]
-    #                     label=p.size
-    #                     self.ax.text(label_x,label_y,label,size=5,ha='center',va='center')
-    #         elif self.voronoi is not None and self.power is not None:
-    #             for i in range(self.n):
-    #                 p = self.power.power_polygons[i]
-    #                 label_x = self.power.crds[i,0]
-    #                 label_y = self.power.crds[i,1]
-    #                 label=p.size-self.voronoi.power_polygons[i].size
-    #                 if label<0:
-    #                     self.ax.text(label_x,label_y,label,size=5,ha='center',va='center')
-    #                 elif label>0:
-    #                     self.ax.text(label_x,label_y,'+{}'.format(label),size=5,ha='center',va='center')
-    #
-    #
         # Set axes
         buffer = 1.5
         lim = buffer*np.max(np.abs(self.crds))
@@ -216,8 +180,36 @@ class Visualisation:
         self.ax.set_axis_off()
 
         # Show figure
-        plt.savefig('vis.png',dpi=400)
+        if self.vis_save:
+            plt.savefig('{}_{}.png'.format(self.prefix,self.frame),dpi=400)
         plt.show()
+
+
+    def init_cell_colours(self):
+
+        av_ring_size=6
+        map_lower = cm.get_cmap('Blues_r', 128)
+        map_upper = cm.get_cmap('Reds', 128)
+        map_mean=cm.get_cmap("Greys")
+        map_lower=ListedColormap(map_lower(np.arange(20,100)))
+        map_upper=ListedColormap(map_upper(np.arange(20,100)))
+
+        norm_lower=Normalize(vmin=av_ring_size-3,vmax=av_ring_size)
+        norm_upper=Normalize(vmin=av_ring_size,vmax=av_ring_size+6)
+        colour_mean=map_mean(50)
+        ring_colours=[]
+        for i in range(30):
+            if i < 3:
+                ring_colours.append("white")
+            elif np.abs(i-av_ring_size)<1e-6:
+                ring_colours.append(colour_mean)
+            elif i<av_ring_size:
+                ring_colours.append(map_lower(norm_lower(i)))
+            else:
+                ring_colours.append(map_upper(norm_upper(i)))
+
+        return ring_colours
+
 
 if __name__ == '__main__':
     vis = Visualisation()

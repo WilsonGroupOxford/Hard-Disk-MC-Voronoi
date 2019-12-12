@@ -45,7 +45,7 @@ public:
     //Analysis and output parameters
     string outputPrefix; //output file path and prefix
     bool rdfCalc,rdfNorm; //RDF flags
-    bool vorCalc2D,radCalc2D,vorCalc3D,radCalc3D; //Voronoi type flags
+    bool vorCalc2D,radCalc2D,radCalc2DCircle,vorCalc3D,radCalc3D; //Voronoi type flags
     bool visXYZ,visVor2D,visVor3D; //visualisation flags
     int analysisFreq,visFreq; //frequency of analysis/visualisation
     int analysisConfigs, xyzConfigs; //number of analysis/xyz configurations

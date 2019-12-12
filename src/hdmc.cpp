@@ -106,7 +106,11 @@ int HDMC::setAnalysis(string path, int anFreq, int rdf, double rdfDel, VecF<int>
     vorCalc3D=false;
     radCalc3D=false;
     if(vor[0]==1) vorCalc2D=true;
-    if(vor[1]==1) radCalc2D=true;
+    if(vor[1]>0){
+        radCalc2D=true;
+        if(vor[1]==1) radCalc2DCircle=false;
+        else radCalc2DCircle=true;
+    }
     if(vor[2]==1) vorCalc3D=true;
     if(vor[3]==1) radCalc3D=true;
     rad2DCut=radCut;
@@ -235,15 +239,20 @@ int HDMC::initialiseConfiguration(Logfile &logfile, double maxIt) {
 
     //Generate weights for 2D Radical
     rad2DInclude=VecF<bool>(n);
-    for(int i=0; i<r.n; ++i){
-        if(2*r[i]<rad2DCut){
-            w[i]=0.0;
-            rad2DInclude[i]=false;
+    if(radCalc2DCircle) {
+        for (int i = 0; i < r.n; ++i) {
+            if (2 * r[i] < rad2DCut) {
+                w[i] = 0.0;
+                rad2DInclude[i] = false;
+            } else {
+                w[i] = pow(2 * rad2DCut * r[i] - rad2DCut * rad2DCut, 0.5);
+                rad2DInclude[i] = true;
+            }
         }
-        else{
-            w[i]=pow(2*rad2DCut*r[i]-rad2DCut*rad2DCut,0.5);
-            rad2DInclude[i]=true;
-        }
+    }
+    else{
+        w=r;
+        rad2DInclude=true;
     }
     cout<<"+++ "<<vSum(rad2DInclude)<<endl;
 

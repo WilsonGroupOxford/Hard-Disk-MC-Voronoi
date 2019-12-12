@@ -1,10 +1,12 @@
 I/0
-./output/test30      input file prefix
+./output/test      input file prefix
 ---------------------------------------------------
 Sample
-0           frame number
+3           frame number
 ---------------------------------------------------
 Display
-1           particle positions
-2           voronoi type(s) (0=none,1=voronoi 2D,2=radical 2D)
+0           particle positions
+1           voronoi type(s) (0=none,1=voronoi 2D,2=radical 2D)
+1           colour cells
+0           save .png
 ---------------------------------------------------
