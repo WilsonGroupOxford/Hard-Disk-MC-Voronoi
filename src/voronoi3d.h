@@ -24,12 +24,13 @@ private:
     shared_ptr<voro::container_poly> con;
     int n,nA,nB; //total number of particles and of type A, B
     int maxVertices; //maximum number of vertices per cell
-    double dz; //height of cells
+    double dz,cz; //height of cells, horizontal cut
     double pbc,rpbc; //periodic boundary conditions
     VecF< VecR<int> > cellNbs; //neighbours of each cell
     VecF<double> cellAreas; //areas of each cell
     VecF< VecR<double> > ringCrds; //coordinates of rings
     VecR< VecR<double> > faceCrds; //coordinates of all faces
+    VecF<bool> cellInclude; //whether cells are included
 
     //Member functions
     void computeCellProjections(VecF<double> &x, VecF<double> &y, VecF<double> &z); //find neighbours for each cell projection
@@ -37,11 +38,12 @@ private:
 public:
 
     //Constructor
-    Voronoi3D(VecF<double> &x, VecF<double> &y, VecF<double> &z, VecF<double> &r, double cellLen_2, int numA, bool radical, int maxV); //3D coordinates and radii, cell info
+    Voronoi3D(VecF<double> &x, VecF<double> &y, VecF<double> &z, VecF<double> &r, double cellLen_2, double zCut, int numA, bool radical, int maxV); //3D coordinates and radii, cell info
 
     //Member functions
     void analyse(int maxSize, VecF<int> &cellSizeDistA, VecF<int> &cellSizeDistB, VecF< VecF<int> > &cellAdjDist, VecF<double> &cellAreaA, VecF<double> &cellAreaB);
     void nnDistances(VecF<double> &x, VecF<double> &y, double cellLen, double rCellLen, VecF<double> &nnSep, VecF<int> &nnCount);
+    void getAreas(VecF<int> &areaHist, double adfDelta);
     VecF< VecR<double> > getProjectedRings();
     VecR< VecR<double> > getFaces(VecF<double> &zLimits);
 };

@@ -27,7 +27,7 @@ public:
     VecF<double> dispersityParams; //dispersity parameters
     double phi; //packing fraction
     double cellLen,rCellLen,cellLen_2; //cell length, reciprocal and half
-    double rad2DCut; //cut for 2D radical voronoi
+    double radCut; //cut for radical voronoi
     VecF<double> x,y,z,r,w; //particle x coords, y coords, z coords, radii and weights for radical voronoi
     VecF<bool> rad2DInclude; //particles to include for radical tessellation
 
@@ -44,13 +44,14 @@ public:
 
     //Analysis and output parameters
     string outputPrefix; //output file path and prefix
-    bool rdfCalc,rdfNorm; //RDF flags
+    bool rdfCalc,rdfNorm, adfCalc, adfNorm; //RDF/ADF flags
     bool vorCalc2D,radCalc2D,radCalc2DCircle,vorCalc3D,radCalc3D; //Voronoi type flags
     bool visXYZ,visVor2D,visVor3D; //visualisation flags
     int analysisFreq,visFreq; //frequency of analysis/visualisation
     int analysisConfigs, xyzConfigs; //number of analysis/xyz configurations
-    double rdfDelta; //RDF bin width
+    double rdfDelta,adfDelta; //RDF/ADF bin width
     VecF<int> rdfHist,prdfHistAA,prdfHistAB,prdfHistBB; //RDF histogram
+    VecF<int> adfHistVor2D,adfHistRad2D,adfHistVor3D,adfHistRad3D; //ADF histograms
     int maxVertices; //set maximum on number of vertices
     VecF<int> vor2DSizesA,vor2DSizesB,rad2DSizesA,rad2DSizesB; //voronoi/radical cell sizes
     VecF<int> vor3DSizesA,vor3DSizesB,rad3DSizesA,rad3DSizesB; //voronoi/radical cell sizes
@@ -68,10 +69,10 @@ public:
     int setParticles(int num, double packFrac, int disp, VecF<double> dispParams, int interact); //set particle properties
     int setRandom(int seed); //set random number generation
     int setSimulation(int eq, int prod, double swap, double accTarg); //set simulation parameters
-    int setAnalysis(string path, int anFreq, int rdf, double rdfDel, VecF<int> vor, double radCut, int visF, int vis3); //set analysis parameters
+    int setAnalysis(string path, int anFreq, int rdf, double rdfDel, int adf, double adfDel, VecF<int> vor, double radZ, int visF, int vis3); //set analysis parameters
 
     //Member functions
-    int initialiseConfiguration(Logfile &logfile, double maxIt); //generate initial particle positions
+    int initialiseConfiguration(Logfile &logfile, string initType, double maxIt); //generate initial particle positions
     bool rsaPositions(double maxIt); //generate positions using rsa algorithm
     void generateRandomPositions(); //generate random particle positions
     void randomPosition(double &xx, double &yy); //generate random particle position

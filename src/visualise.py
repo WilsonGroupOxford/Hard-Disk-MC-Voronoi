@@ -112,27 +112,38 @@ class Visualisation:
         self.ax = self.fig.add_subplot(111)
 
         # Add particles if selected
+        print(self.crds)
         cmap=cm.get_cmap('coolwarm')
         norm=Normalize(0,20)
         print(np.max(self.radii))
         print(np.max(self.weights))
         if self.vis_particles:
-            if self.vis_vortype==2:
+            if self.vis_vortype==-2:
                 radii=self.weights
                 if self.param>10:
                     self.param=(self.param-10)/2+10
                 colour=cmap(norm(self.param))
             else:
                 radii=self.radii
+                radii=self.weights
                 colour='orange'
+                colour=(0.8,0.687,0.287,1)
+                colour='gold'
             patches = []
             patches_pnts = []
+            patches_absent = []
             for i,c in enumerate(self.crds):
                 patches.append(Circle(c,radius=radii[i]))
                 if radii[i]>0:
-                    patches_pnts.append(Circle(c,radius=1))
+                    patches_pnts.append(Circle(c,radius=0.1))
+                else:
+                    patches_absent.append(Circle(c,radius=0.1))
             self.ax.add_collection(PatchCollection(patches, facecolor=colour, edgecolor='k', alpha=0.5))
             self.ax.add_collection(PatchCollection(patches_pnts, facecolor='k', alpha=1,zorder=1))
+            if self.vis_vortype==2:
+                self.ax.add_collection(PatchCollection(patches_absent, facecolor='k', alpha=0.5,zorder=1))
+            else:
+                self.ax.add_collection(PatchCollection(patches_absent, facecolor='k', alpha=1,zorder=1))
 
         # Add voronoi
         if self.vis_vortype!=0:
@@ -145,7 +156,7 @@ class Visualisation:
             for i in range(self.m):
                 patches.append(Polygon(self.rings[i],True))
                 colours.append(cell_colours[self.rings[i][:,0].size])
-            self.ax.add_collection(PatchCollection(patches, facecolor=colours, edgecolor='k',zorder=0))
+            self.ax.add_collection(PatchCollection(patches, facecolor=colours, edgecolor='k', linewidth=1, zorder=0))
 
         # Sandbox
         # print(np.max(self.radii))
@@ -173,7 +184,7 @@ class Visualisation:
 
 
         # Set axes
-        buffer = 1.5
+        buffer = 1.6
         lim = buffer*np.max(np.abs(self.crds))
         self.ax.set_xlim((-lim,lim))
         self.ax.set_ylim((-lim,lim))
@@ -181,7 +192,7 @@ class Visualisation:
 
         # Show figure
         if self.vis_save:
-            plt.savefig('{}_{}.png'.format(self.prefix,self.frame),dpi=400)
+            plt.savefig('{}_{}_{}.png'.format(self.prefix,self.frame,self.vis_vortype),dpi=400)
         plt.show()
 
 
@@ -193,6 +204,8 @@ class Visualisation:
         map_mean=cm.get_cmap("Greys")
         map_lower=ListedColormap(map_lower(np.arange(20,100)))
         map_upper=ListedColormap(map_upper(np.arange(20,100)))
+        map_lower=ListedColormap(map_lower(np.arange(0,60)))
+        map_upper=ListedColormap(map_upper(np.arange(20,120)))
 
         norm_lower=Normalize(vmin=av_ring_size-3,vmax=av_ring_size)
         norm_upper=Normalize(vmin=av_ring_size,vmax=av_ring_size+6)
@@ -208,6 +221,7 @@ class Visualisation:
             else:
                 ring_colours.append(map_upper(norm_upper(i)))
 
+        print(ring_colours[4])
         return ring_colours
 
 

@@ -75,7 +75,7 @@ void Voronoi2D::analyse(int maxSize, VecF<int> &cellSizeDistA, VecF<int> &cellSi
             int sizeJ=cellSizes[cellNbs[i][j]];
             ++cellAdjDist[sizeI][sizeJ];
             //Account for self interactions
-//            if(i==cellNbs[i][j]) ++cellAdjDist[sizeI][sizeJ];
+            if(i==cellNbs[i][j]) ++cellAdjDist[sizeI][sizeJ];
         }
     }
 
@@ -86,6 +86,19 @@ void Voronoi2D::analyse(int maxSize, VecF<int> &cellSizeDistA, VecF<int> &cellSi
     for(int i=nA; i<n; ++i) cellAreaB[cellSizes[i]]+=cellAreas[i];
     cellAreaA[maxSize]=vSum(cellAreaA);
     cellAreaB[maxSize]=vSum(cellAreaB);
+
+    //Check network analysis fidelity
+//    bool cellSizesOK=true;
+//    VecF<int> cellSizeDistAB=cellSizeDistA+cellSizeDistB;
+//    int edgeSum=0;
+//    for(int i=0; i<maxSize; ++i) edgeSum+=i*cellSizeDistAB[i];
+//    if(edgeSum!=n*6) cellSizesOK=false;
+//    bool cellAdjsOK=true;
+//    for(int i=0; i<maxSize; ++i){
+//        int rowSum=vSum(cellAdjDist[i]);
+//        if(rowSum!=i*cellSizeDistAB[i]) cellAdjsOK=false;
+//    }
+//    cout<<cellSizesOK<<" "<<cellAdjsOK<<endl;
 }
 
 
@@ -137,7 +150,7 @@ void Voronoi2D::computeCells(VecF<double> &x, VecF<double> &y, VecF<double> &w, 
         }
         cellNbs[id].delValue(-5); //remove z cell boundary
         cellNbs[id].delValue(-6); //remove z cell boundary
-//        for(int i=0; i<cellNbs[id].n; ++i) if(cellNbs[id][i]<0) cellNbs[id][i]=id; //add self interaction
+        for(int i=0; i<cellNbs[id].n; ++i) if(cellNbs[id][i]<0) cellNbs[id][i]=id; //add self interaction
         cellAreas[id]=cell.volume()/dz;
     } while(looper.inc());
 }
@@ -206,4 +219,14 @@ void Voronoi2D::getRings(VecF<double> &x, VecF<double> &y, VecF< VecR<double> > 
             }
         }
     } while(looper.inc());
+}
+
+
+void Voronoi2D::getAreas(VecF<int> &areaHist, double adfDelta) {
+    //Add areas of each cell to histogram
+
+    for(int i=0; i<n; ++i){
+        int b = floor(cellAreas[i]/adfDelta);
+        ++areaHist[b];
+    }
 }

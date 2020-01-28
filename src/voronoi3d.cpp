@@ -1,7 +1,7 @@
 #include "voronoi3d.h"
 
 
-Voronoi3D::Voronoi3D(VecF<double> &x, VecF<double> &y, VecF<double> &z, VecF<double> &r, double cellLen_2, int numA, bool radical, int maxV) {
+Voronoi3D::Voronoi3D(VecF<double> &x, VecF<double> &y, VecF<double> &z, VecF<double> &r, double cellLen_2, double zCut, int numA, bool radical, int maxV) {
     //Initialise with x,y,z coordinates and radii
 
     //Make periodic container in xy
@@ -10,7 +10,8 @@ Voronoi3D::Voronoi3D(VecF<double> &x, VecF<double> &y, VecF<double> &z, VecF<dou
     nB=n-nA;
     maxVertices=maxV;
     int blocks=sqrt(n);
-    dz=2*vMaximum(r);
+    dz=4*vMaximum(r);
+    cz=zCut;
     pbc=cellLen_2*2;
     rpbc=1.0/pbc;
     con=make_shared<voro::container_poly>(-cellLen_2,cellLen_2,-cellLen_2,cellLen_2,0,dz,
@@ -40,27 +41,42 @@ void Voronoi3D::analyse(int maxSize, VecF<int> &cellSizeDistA, VecF<int> &cellSi
     }
     cellSizeDistA=VecF<int>(maxSize);
     cellSizeDistB=VecF<int>(maxSize);
-    for(int i=0; i<nA; ++i) ++cellSizeDistA[cellSizes[i]];
-    for(int i=nA; i<n; ++i) ++cellSizeDistB[cellSizes[i]];
+    for(int i=0; i<nA; ++i) if(cellInclude[i]) ++cellSizeDistA[cellSizes[i]];
+    for(int i=nA; i<n; ++i) if(cellInclude[i]) ++cellSizeDistB[cellSizes[i]];
 
     //Calculate cell adjacencies distribution
     cellAdjDist=VecF< VecF<int> >(maxSize);
     for(int i=0; i<maxSize; ++i) cellAdjDist[i]=VecF<int>(maxSize);
     for(int i=0; i<n; ++i){
-        int sizeI=cellSizes[i];
-        for(int j=0; j<cellNbs[i].n; ++j){
-            int sizeJ=cellSizes[cellNbs[i][j]];
-            ++cellAdjDist[sizeI][sizeJ];
+        if(cellInclude[i]) {
+            int sizeI = cellSizes[i];
+            for (int j = 0; j < cellNbs[i].n; ++j) {
+                int sizeJ = cellSizes[cellNbs[i][j]];
+                ++cellAdjDist[sizeI][sizeJ];
+            }
         }
     }
 
     //Calculate cell size average areas
     cellAreaA=VecF<double>(maxSize+1);
     cellAreaB=VecF<double>(maxSize+1);
-    for(int i=0; i<nA; ++i) cellAreaA[cellSizes[i]]+=cellAreas[i];
-    for(int i=nA; i<n; ++i) cellAreaB[cellSizes[i]]+=cellAreas[i];
+    for(int i=0; i<nA; ++i) if(cellInclude[i]) cellAreaA[cellSizes[i]]+=cellAreas[i];
+    for(int i=nA; i<n; ++i) if(cellInclude[i]) cellAreaB[cellSizes[i]]+=cellAreas[i];
     cellAreaA[maxSize]=vSum(cellAreaA);
     cellAreaB[maxSize]=vSum(cellAreaB);
+
+    //Check network analysis fidelity
+    bool cellSizesOK=true;
+    int nInclude=vSum(cellInclude);
+    VecF<int> cellSizeDistAB=cellSizeDistA+cellSizeDistB;
+    int edgeSum=0;
+    for(int i=0; i<maxSize; ++i) edgeSum+=i*cellSizeDistAB[i];
+    if(edgeSum!=nInclude*6) cellSizesOK=false;
+    bool cellAdjsOK=true;
+    for(int i=0; i<maxSize; ++i){
+        int rowSum=vSum(cellAdjDist[i]);
+        if(rowSum!=i*cellSizeDistAB[i]) cellAdjsOK=false;
+    }
 }
 
 
@@ -75,21 +91,23 @@ void Voronoi3D::nnDistances(VecF<double> &x, VecF<double> &y, double cellLen, do
     for(int i=nA; i<n; ++i) nType[i]=1;
     double dx,dy,d;
     for(int i=0; i<n; ++i){
-        for(int j=0; j<cellNbs[i].n; ++j){
-            dx=x[i]-x[cellNbs[i][j]];
-            dy=y[i]-y[cellNbs[i][j]];
-            dx-=cellLen*nearbyint(dx*rCellLen);
-            dy-=cellLen*nearbyint(dy*rCellLen);
-            d=sqrt(dx*dx+dy*dy);
-            ++nnCount[nType[i]+nType[cellNbs[i][j]]];
-            nnSep[nType[i]+nType[cellNbs[i][j]]]+=d;
+        if(cellInclude[i]) {
+            for (int j = 0; j < cellNbs[i].n; ++j) {
+                dx = x[i] - x[cellNbs[i][j]];
+                dy = y[i] - y[cellNbs[i][j]];
+                dx -= cellLen * nearbyint(dx * rCellLen);
+                dy -= cellLen * nearbyint(dy * rCellLen);
+                d = sqrt(dx * dx + dy * dy);
+                ++nnCount[nType[i] + nType[cellNbs[i][j]]];
+                nnSep[nType[i] + nType[cellNbs[i][j]]] += d;
+            }
         }
     }
 }
 
 
 void Voronoi3D::computeCellProjections(VecF<double> &x, VecF<double> &y, VecF<double> &z) {
-    //Calculate cell projections onto lower wall
+    //Calculate cell projections onto plane
     //Calculate neighbouring particles for each particle, and area of cells
 
     //Make looper
@@ -104,6 +122,7 @@ void Voronoi3D::computeCellProjections(VecF<double> &x, VecF<double> &y, VecF<do
     for(int i=0; i<cellNbs3D.n; ++i) ringCrds[i]=VecR<double>(0,12*maxVertices);
     cellAreas=VecF<double>(n);
     faceCrds=VecR< VecR<double> >(0,n*20);
+    cellInclude=VecF<bool>(n);
 
     //Loop over each cell and extract neighbour ids
     do{
@@ -124,15 +143,22 @@ void Voronoi3D::computeCellProjections(VecF<double> &x, VecF<double> &y, VecF<do
         }
         if(vContains(cellNbs3D[id],-6)) cellNbs3D[id].delValue(-6); //remove z cell boundary if present
 
+        //Perform horizontal cut
+        int bottomTop; //-1=bottom, 1=top face key
+        if(cz<z[id]) bottomTop=-1;
+        else bottomTop=1;
+        double cutPlane=2*(cz-z[id]);
+        cell.plane(0.0,0.0,cutPlane);
+
         //Find faces, normals and vertices
         vector<int> faceSizes; //number of vertices in each face
         cell.face_orders(faceSizes);
         int numFaces=faceSizes.size(); //number of faces
         vector<double> normals; //normals for each face (x,y,z)
         cell.normals(normals);
-        int keyFace=-1; //id of face on the lower plane
+        int keyFace=-1; //id of face on the bottom/top plane
         for(int i=0; i<numFaces; ++i){
-            if(fabs(normals[3*i+2]+1)<1e-12){
+            if(fabs(normals[3*i+2]-bottomTop)<1e-12){
                 keyFace=i;
                 break;
             }
@@ -175,9 +201,17 @@ void Voronoi3D::computeCellProjections(VecF<double> &x, VecF<double> &y, VecF<do
             for (int i = 1; i < keyVertexIds.n; ++i) {//first index gives face size
                 ringCrds[id].addValue(vertexCrds[3 * keyVertexIds[i]]);
                 ringCrds[id].addValue(vertexCrds[3 * keyVertexIds[i] + 1]);
+//                cout<<z[id]<<" "<<cutPlane<<" "<<vertexCrds[3*keyVertexIds[i]+2]<<endl;
             }
+            cellInclude[id]=true;
         }
+        else cellInclude[id]=false;
     } while(looper.inc());
+
+    //Clear cells which are not included
+    for(int i=0; i<n; ++i){
+        if(!cellInclude[i]) cellNbs3D[i]=VecR<int>(0);
+    }
 
     //Find neighbours of projected face only
     cellNbs=VecF< VecR<int> >(n); //only projected neighbours
@@ -206,19 +240,33 @@ void Voronoi3D::computeCellProjections(VecF<double> &x, VecF<double> &y, VecF<do
             }
             if(neighbour) cellNbs[id].addValue(nbId);
         }
-        if(cellNbs[id].n!=ringCrds[id].n/2) cout<<"Error in 3D Voronoi neighbours"<<endl;
+        if(cellNbs[id].n!=ringCrds[id].n/2) cout<<"Error in 3D Voronoi neighbours "<<cellNbs[id].n<<" "<<ringCrds[id].n/2<<endl;
     }
 
     //Calculate cell areas using shoelace formula
     for(int id=0; id<n; ++id){
-        int nn=cellNbs[id].n;
-        for(int i=0,j=1; i<nn-1; ++i,++j){
-            cellAreas[id]+=ringCrds[id][2*i]*ringCrds[id][2*j+1];
-            cellAreas[id]-=ringCrds[id][2*j]*ringCrds[id][2*i+1];
+        if(cellInclude[id]) {
+            int nn = cellNbs[id].n;
+            for (int i = 0, j = 1; i < nn - 1; ++i, ++j) {
+                cellAreas[id] += ringCrds[id][2 * i] * ringCrds[id][2 * j + 1];
+                cellAreas[id] -= ringCrds[id][2 * j] * ringCrds[id][2 * i + 1];
+            }
+            cellAreas[id] += ringCrds[id][2 * (nn - 1)] * ringCrds[id][1];
+            cellAreas[id] -= ringCrds[id][0] * ringCrds[id][2 * (nn - 1) + 1];
+            cellAreas[id] = 0.5 * fabs(cellAreas[id]);
         }
-        cellAreas[id]+=ringCrds[id][2*(nn-1)]*ringCrds[id][1];
-        cellAreas[id]-=ringCrds[id][0]*ringCrds[id][2*(nn-1)+1];
-        cellAreas[id]=0.5*fabs(cellAreas[id]);
+    }
+}
+
+
+void Voronoi3D::getAreas(VecF<int> &areaHist, double adfDelta) {
+    //Add areas of each cell to histogram
+
+    for(int i=0; i<n; ++i) {
+        if (cellInclude[i]) {
+            int b = floor(cellAreas[i]/adfDelta);
+            ++areaHist[b];
+        }
     }
 }
 

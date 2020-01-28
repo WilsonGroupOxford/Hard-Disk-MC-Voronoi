@@ -84,6 +84,16 @@ public:
         file<<endl;
     }
 
+    template <typename T, typename U>
+    void writeValRowVector(T val, U vec){
+        for(int i=0; i<currIndent; ++i) file<<indent;
+        file<<setw(spacing)<<left<<val;
+        for(int i=0; i<vec.n; ++i){
+            file<<setw(spacing)<<left<<vec[i];
+        }
+        file<<endl;
+    }
+
 };
 
 //Logfile

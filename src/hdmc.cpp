@@ -67,7 +67,7 @@ int HDMC::setSimulation(int eq, int prod, double swap, double accTarg) {
 }
 
 
-int HDMC::setAnalysis(string path, int anFreq, int rdf, double rdfDel, VecF<int> vor, double radCut, int visF, int vis3) {
+int HDMC::setAnalysis(string path, int anFreq, int rdf, double rdfDel, int adf, double adfDel, VecF<int> vor, double radZ, int visF, int vis3) {
     //Set analysis parameters
 
     outputPrefix=path;
@@ -84,6 +84,19 @@ int HDMC::setAnalysis(string path, int anFreq, int rdf, double rdfDel, VecF<int>
         rdfCalc=true;
         rdfNorm= false;
         rdfDelta=rdfDel;
+    }
+
+    //Set adf type
+    if(adf==0) adfCalc=false;
+    else if(adf==1){
+        adfCalc=true;
+        adfNorm=true;
+        adfDelta=adfDel;
+    }
+    else if(adf==2){
+        adfCalc=true;
+        adfNorm=false;
+        adfDelta=adfDel;
     }
 
     //Set visualisation output frequency with 0 preventing write
@@ -113,8 +126,8 @@ int HDMC::setAnalysis(string path, int anFreq, int rdf, double rdfDel, VecF<int>
     }
     if(vor[2]==1) vorCalc3D=true;
     if(vor[3]==1) radCalc3D=true;
-    rad2DCut=radCut;
-    maxVertices=21;
+    radCut=radZ;
+    maxVertices=40;
 
     return 0;
 }
@@ -135,6 +148,16 @@ int HDMC::initAnalysis() {
             prdfHistAB=VecF<int>(maxBin);
             prdfHistBB=VecF<int>(maxBin);
         }
+    }
+
+    //ADF histogram
+    if(adfCalc){
+        adfDelta*=n;
+        int maxBin=floor(cellLen*cellLen/adfDelta)+1;
+        adfHistVor2D=VecF<int>(maxBin);
+        adfHistRad2D=VecF<int>(maxBin);
+        adfHistVor3D=VecF<int>(maxBin);
+        adfHistRad3D=VecF<int>(maxBin);
     }
 
     //Voronoi distributions
@@ -186,7 +209,7 @@ int HDMC::initAnalysis() {
 //---------- INITIAL CONFIGURATION --------
 
 
-int HDMC::initialiseConfiguration(Logfile &logfile, double maxIt) {
+int HDMC::initialiseConfiguration(Logfile &logfile, string initType, double maxIt) {
     //Generate initial particle positions
 
     logfile.write("Generating Initial Configuration");
@@ -204,10 +227,14 @@ int HDMC::initialiseConfiguration(Logfile &logfile, double maxIt) {
     double area;
     if(dispersity==1) area=(M_PI*n*pow(dispersityParams[0],2))/phi;
     else if(dispersity==2) area=M_PI*(nA*pow(dispersityParams[0],2)+nB*pow(dispersityParams[1],2))/phi;
-    else if(dispersity==3) area=M_PI*(nA*pow(dispersityParams[0],2))/phi;
+    else if(dispersity==3){
+        double numDensity=phi;
+        area=n/numDensity;
+    }
     cellLen=sqrt(area);
     rCellLen=1.0/cellLen;
     cellLen_2=cellLen/2.0;
+    cout<<"--- "<<n/area<<endl;
 
     //Generate particle radii
     if(dispersity==1){
@@ -227,10 +254,11 @@ int HDMC::initialiseConfiguration(Logfile &logfile, double maxIt) {
     else if(dispersity==3){
         //Randomly generate radii from gaussian
         normal_distribution<double> normalDist(dispersityParams[0],dispersityParams[1]);
+        lognormal_distribution<double> lognormalDist(dispersityParams[0],dispersityParams[1]);
         for(int i=0; i<n; ++i){
             double randR;
             for(;;){
-                randR=normalDist(mtGen);
+                randR=lognormalDist(mtGen);
                 if(randR>0) break;
             }
             r[i]=randR;
@@ -241,11 +269,11 @@ int HDMC::initialiseConfiguration(Logfile &logfile, double maxIt) {
     rad2DInclude=VecF<bool>(n);
     if(radCalc2DCircle) {
         for (int i = 0; i < r.n; ++i) {
-            if (2 * r[i] < rad2DCut) {
+            if (2 * r[i] < radCut) {
                 w[i] = 0.0;
                 rad2DInclude[i] = false;
             } else {
-                w[i] = pow(2 * rad2DCut * r[i] - rad2DCut * rad2DCut, 0.5);
+                w[i] = pow(2 * radCut * r[i] - radCut * radCut, 0.5);
                 rad2DInclude[i] = true;
             }
         }
@@ -255,17 +283,32 @@ int HDMC::initialiseConfiguration(Logfile &logfile, double maxIt) {
         rad2DInclude=true;
     }
     cout<<"+++ "<<vSum(rad2DInclude)<<endl;
-
+    if(vSum(rad2DInclude)<40){
+        logfile.write("2D radical disabled due to excessive z-cut");
+        radCalc2D=false;
+    }
 
     //Generate initial configuration
     bool success;
     int attempt=1;
-    for(;;){
-        success=rsaPositions(maxIt);
-        logfile.write("Attempt "+to_string(attempt)+" successful:",success);
-        cout<<"Attempt "+to_string(attempt)+" successful: "<<success<<endl;
-        if(success) break;
-        ++attempt;
+    if(initType=="rsa") {
+        for (;;) {
+            success = rsaPositions(maxIt);
+            logfile.write("Attempt " + to_string(attempt) + " successful:", success);
+            cout << "Attempt " + to_string(attempt) + " successful: " << success << endl;
+            if (success) break;
+            ++attempt;
+        }
+    }
+    else if(initType=="swell"){
+        for (;;) {
+            generateRandomPositions();
+            success = resolvePositions();
+            logfile.write("Attempt " + to_string(attempt) + " successful:", success);
+            cout << "Attempt " + to_string(attempt) + " successful: " << success << endl;
+            if (success) break;
+            ++attempt;
+        }
     }
 
     //Set z coordinate
@@ -726,7 +769,7 @@ void HDMC::equilibration(Logfile &logfile, OutputFile &xyzFile) {
     ++logfile.currIndent;
     //First some loops to remove any initial ordering
     logfile.write("Disrupting any initial ordering");
-    for(int i=0; i<100; ++i){
+    for(int i=0; i<0; ++i){
         double deltaMin=0.01*vMinimum(r);
         double deltaMax=cellLen_2;
         double accProb;
@@ -993,14 +1036,14 @@ void HDMC::calculateVoronoi2D(OutputFile &vor2DFile, OutputFile &vis2DFile, bool
     for(int i=0; i<cellSizeDistA.n; ++i) if(cellSizeDistA[i]>0) cellAreaA[i]/=cellSizeDistA[i];
     VecF<double> resA = networkAnalysis(cellSizeDistA, cellAdjDist);
     vor2DFile.writeRowVector(resA);
-    vor2DFile.writeRowVector(cellAreaA);
+//    vor2DFile.writeRowVector(cellAreaA);
 
     //Get network analysis and write for type B configuration
     if(dispersity==2) {
         for(int i=0; i<cellSizeDistB.n; ++i) if(cellSizeDistB[i]>0) cellAreaB[i]/=cellSizeDistB[i];
         VecF<double> resB = networkAnalysis(cellSizeDistB, cellAdjDist);
-        vor2DFile.writeRowVector(resB);
-        vor2DFile.writeRowVector(cellAreaB);
+//        vor2DFile.writeRowVector(resB);
+//        vor2DFile.writeRowVector(cellAreaB);
     }
 
     //Write nearest neighbour distances and frequency
@@ -1009,7 +1052,10 @@ void HDMC::calculateVoronoi2D(OutputFile &vor2DFile, OutputFile &vis2DFile, bool
         if(nnCount[i]>0) nn[i]=nnSep[i]/nnCount[i];
         nn[3+i]=nnCount[i];
     }
-    vor2DFile.writeRowVector(nn);
+//    vor2DFile.writeRowVector(nn);
+
+    //Add cell areas to distribution
+    if(adfCalc) vor.getAreas(adfHistVor2D,adfDelta);
 
     //Write Voronoi visualisation
     if(vis) writeVor(vor,vis2DFile,1);
@@ -1039,15 +1085,15 @@ void HDMC::calculateRadical2D(OutputFile &rad2DFile, OutputFile &vis2DFile, bool
     //Get network analysis and write for type A configuration
     for(int i=0; i<cellSizeDistA.n; ++i) if(cellSizeDistA[i]>0) cellAreaA[i]/=cellSizeDistA[i];
     VecF<double> resA = networkAnalysis(cellSizeDistA, cellAdjDist);
-    rad2DFile.writeRowVector(resA);
-    rad2DFile.writeRowVector(cellAreaA);
+//    rad2DFile.writeRowVector(resA);
+//    rad2DFile.writeRowVector(cellAreaA);
 
     //Get network analysis and write for type B configuration
     if(dispersity==2) {
         for(int i=0; i<cellSizeDistB.n; ++i) if(cellSizeDistB[i]>0) cellAreaB[i]/=cellSizeDistB[i];
         VecF<double> resB = networkAnalysis(cellSizeDistB, cellAdjDist);
-        rad2DFile.writeRowVector(resB);
-        rad2DFile.writeRowVector(cellAreaB);
+//        rad2DFile.writeRowVector(resB);
+//        rad2DFile.writeRowVector(cellAreaB);
     }
 
     //Write nearest neighbour distances and frequency
@@ -1056,10 +1102,13 @@ void HDMC::calculateRadical2D(OutputFile &rad2DFile, OutputFile &vis2DFile, bool
         if(nnCount[i]>0) nn[i]=nnSep[i]/nnCount[i];
         nn[3+i]=nnCount[i];
     }
-    rad2DFile.writeRowVector(nn);
+//    rad2DFile.writeRowVector(nn);
+
+    //Add cell areas to distribution
+    if(adfCalc) rad.getAreas(adfHistRad2D,adfDelta);
 
     //Write radical visualisation
-    if(vis) writeVor(rad,vis2DFile,2,rad2DCut);
+    if(vis) writeVor(rad,vis2DFile,2,radCut);
 }
 
 
@@ -1070,7 +1119,7 @@ void HDMC::calculateVoronoi3D(OutputFile &vor3DFile, OutputFile &vis2DFile, Outp
     VecF<int> cellSizeDistA,cellSizeDistB,nnCount;
     VecF<VecF<int> > cellAdjDist;
     VecF<double> cellAreaA,cellAreaB,nnSep;
-    Voronoi3D vor(x, y, z, r, cellLen_2, nA, false, maxVertices);
+    Voronoi3D vor(x, y, z, r, cellLen_2, radCut, nA, false, maxVertices);
     vor.analyse(maxVertices, cellSizeDistA, cellSizeDistB, cellAdjDist, cellAreaA, cellAreaB);
     vor.nnDistances(x,y,cellLen,rCellLen,nnSep,nnCount);
 
@@ -1093,8 +1142,8 @@ void HDMC::calculateVoronoi3D(OutputFile &vor3DFile, OutputFile &vis2DFile, Outp
     if(dispersity==2) {
         for(int i=0; i<cellSizeDistB.n; ++i) if(cellSizeDistB[i]>0) cellAreaB[i]/=cellSizeDistB[i];
         VecF<double> resB = networkAnalysis(cellSizeDistB, cellAdjDist);
-        vor3DFile.writeRowVector(resB);
-        vor3DFile.writeRowVector(cellAreaB);
+//        vor3DFile.writeRowVector(resB);
+//        vor3DFile.writeRowVector(cellAreaB);
     }
 
     //Write nearest neighbour distances and frequency
@@ -1103,7 +1152,10 @@ void HDMC::calculateVoronoi3D(OutputFile &vor3DFile, OutputFile &vis2DFile, Outp
         if(nnCount[i]>0) nn[i]=nnSep[i]/nnCount[i];
         nn[3+i]=nnCount[i];
     }
-    vor3DFile.writeRowVector(nn);
+//    vor3DFile.writeRowVector(nn);
+
+    //Add cell areas to distribution
+    if(adfCalc) vor.getAreas(adfHistVor3D,adfDelta);
 
     //Write Voronoi visualisation
     if(vis) writeVor(vor,vis2DFile,vis3DFile,3);
@@ -1117,7 +1169,7 @@ void HDMC::calculateRadical3D(OutputFile &rad3DFile, OutputFile &vis2DFile, Outp
     VecF<int> cellSizeDistA,cellSizeDistB,nnCount;
     VecF<VecF<int> > cellAdjDist;
     VecF<double> cellAreaA,cellAreaB,nnSep;
-    Voronoi3D rad(x, y, z, r, cellLen_2, nA, true, maxVertices);
+    Voronoi3D rad(x, y, z, r, cellLen_2, radCut, nA, true, maxVertices);
     rad.analyse(maxVertices, cellSizeDistA, cellSizeDistB, cellAdjDist, cellAreaA, cellAreaB);
     rad.nnDistances(x,y,cellLen,rCellLen,nnSep,nnCount);
 
@@ -1133,15 +1185,15 @@ void HDMC::calculateRadical3D(OutputFile &rad3DFile, OutputFile &vis2DFile, Outp
     //Get network analysis and write for type A configuration
     for(int i=0; i<cellSizeDistA.n; ++i) if(cellSizeDistA[i]>0) cellAreaA[i]/=cellSizeDistA[i];
     VecF<double> resA = networkAnalysis(cellSizeDistA, cellAdjDist);
-    rad3DFile.writeRowVector(resA);
-    rad3DFile.writeRowVector(cellAreaA);
+//    rad3DFile.writeRowVector(resA);
+//    rad3DFile.writeRowVector(cellAreaA);
 
     //Get network analysis and write for type B configuration
     if(dispersity==2) {
         for(int i=0; i<cellSizeDistB.n; ++i) if(cellSizeDistB[i]>0) cellAreaB[i]/=cellSizeDistB[i];
         VecF<double> resB = networkAnalysis(cellSizeDistB, cellAdjDist);
-        rad3DFile.writeRowVector(resB);
-        rad3DFile.writeRowVector(cellAreaB);
+//        rad3DFile.writeRowVector(resB);
+//        rad3DFile.writeRowVector(cellAreaB);
     }
 
     //Write nearest neighbour distances and frequency
@@ -1150,10 +1202,13 @@ void HDMC::calculateRadical3D(OutputFile &rad3DFile, OutputFile &vis2DFile, Outp
         if(nnCount[i]>0) nn[i]=nnSep[i]/nnCount[i];
         nn[3+i]=nnCount[i];
     }
-    rad3DFile.writeRowVector(nn);
+//    rad3DFile.writeRowVector(nn);
+
+    //Add cell areas to distribution
+    if(adfCalc) rad.getAreas(adfHistRad3D,adfDelta);
 
     //Write Voronoi visualisation
-    if(vis) writeVor(rad,vis2DFile,vis3DFile,4);
+    if(vis) writeVor(rad,vis2DFile,vis3DFile,4,radCut);
 }
 
 
@@ -1161,7 +1216,7 @@ VecF<double> HDMC::networkAnalysis(VecF<int> &sizes, VecF< VecF<int> > &adjs) {
     //Calculate normalised size distribution and assortativity
 
     //Normalised size distribution and moments
-    VecF<double> res(maxVertices+1);
+    VecF<double> res(maxVertices+2);
     double normSize=vSum(sizes);
     for(int i=0; i<sizes.n; ++i) res[i]=sizes[i]/normSize;
 
@@ -1185,6 +1240,7 @@ VecF<double> HDMC::networkAnalysis(VecF<int> &sizes, VecF< VecF<int> > &adjs) {
     }
     r=r/(sigA-sigB);
     res[maxVertices]=r;
+    res[maxVertices+1]=normSize;
 
     return res;
 }
@@ -1322,6 +1378,26 @@ void HDMC::writeAnalysis(Logfile &logfile, OutputFile &vor2DFile, OutputFile &ra
             }
             //Write
             for(int i=0; i<rdf.n; ++i) rdfFile.write(bins[i],rdf[i]);
+        }
+    }
+
+    //ADF
+    if(adfCalc){
+        OutputFile adfFile(outputPrefix+"_adf.dat");
+        VecF<double> bins(adfHistVor2D.n);
+        for(int i=0; i<bins.n; ++i) bins[i]=adfDelta*(i+0.5);
+        VecF< VecR<double> > adfHist(bins.n);
+        int totalSum=vSum(adfHistVor2D)+vSum(adfHistRad2D)+vSum(adfHistVor3D)+vSum(adfHistRad3D);
+        int currSum=0;
+        for(int i=0; i<bins.n; ++i){
+            VecR<int> row(0,4);
+            if(vorCalc2D) row.addValue(adfHistVor2D[i]);
+            if(radCalc2D) row.addValue(adfHistRad2D[i]);
+            if(vorCalc3D) row.addValue(adfHistVor3D[i]);
+            if(radCalc3D) row.addValue(adfHistRad3D[i]);
+            for(int j=0; j<row.n; ++j) currSum+=row[j];
+            if (currSum>0) adfFile.writeValRowVector(bins[i],row);
+            if(currSum==totalSum) break;
         }
     }
 

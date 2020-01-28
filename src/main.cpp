@@ -84,11 +84,15 @@ int main(int argc, char **argv) {
     for(int i=0; i<2; ++i) getline(inputFile,skip);
     int randomSeed; //seed for random number generator
     int eqCycles, prodCycles; //number of equilibration and production cycles
+    string initType; //initial configuration generation type
     double rsaIt; //power for maximum iteractions in rsa algorithm
     double swapProb,accTarget; //swap probability and acceptance probability target
     getline(inputFile,line);
     istringstream(line)>>randomSeed;
     logfile.write("Random seed:",randomSeed);
+    getline(inputFile,line);
+    istringstream(line)>>initType;
+    logfile.write("Initial generation:",initType);
     getline(inputFile,line);
     istringstream(line)>>rsaIt;
     logfile.write("RSA maximum iterations:",rsaIt);
@@ -110,10 +114,10 @@ int main(int argc, char **argv) {
     ++logfile.currIndent;
     for(int i=0; i<2; ++i) getline(inputFile,skip);
     string outputPrefix;
-    int analysisFreq,rdfAnalysis;
-    double rdfDelta;
+    int analysisFreq,rdfAnalysis,adfAnalysis;
+    double rdfDelta,adfDelta;
     VecF<int> vorAnalysis(4);
-    double rad2DCut;
+    double radCut;
     getline(inputFile,line);
     istringstream(line)>>outputPrefix;
     logfile.write("Output prefix:",outputPrefix);
@@ -126,6 +130,12 @@ int main(int argc, char **argv) {
     getline(inputFile,line);
     istringstream(line)>>rdfDelta;
     logfile.write("Radial distribution function bin width:",rdfDelta);
+    getline(inputFile,line);
+    istringstream(line)>>adfAnalysis;
+    logfile.write("Area distribution function calculation:",adfAnalysis);
+    getline(inputFile,line);
+    istringstream(line)>>adfDelta;
+    logfile.write("Area distribution function bin width:",adfDelta);
     for(int i=0; i<vorAnalysis.n; ++i){
         getline(inputFile,line);
         istringstream(line)>>vorAnalysis[i];
@@ -135,8 +145,8 @@ int main(int argc, char **argv) {
     logfile.write("3D Voronoi analysis:",vorAnalysis[2]); //Disabled as will give errors when no ring contribution
     logfile.write("3D Radical analysis:",vorAnalysis[2]);
     getline(inputFile,line);
-    istringstream(line)>>rad2DCut;
-    logfile.write("2D radical cut parameter:",rad2DCut);
+    istringstream(line)>>radCut;
+    logfile.write("2D radical cut parameter:",radCut);
     --logfile.currIndent;
     //Visualisation parameters
     logfile.write("Reading analysis parameters");
@@ -163,7 +173,7 @@ int main(int argc, char **argv) {
     logfile.write("Random number generators initialised");
     simulation.setSimulation(eqCycles,prodCycles,swapProb,accTarget);
     logfile.write("Simulation parameters set");
-    simulation.setAnalysis(outputPrefix,analysisFreq,rdfAnalysis,rdfDelta,vorAnalysis,rad2DCut,visFreq,vis3D);
+    simulation.setAnalysis(outputPrefix,analysisFreq,rdfAnalysis,rdfDelta,adfAnalysis,adfDelta,vorAnalysis,radCut,visFreq,vis3D);
     logfile.write("Analysis and write parameters set");
     --logfile.currIndent;
     logfile.separator();
@@ -179,7 +189,7 @@ int main(int argc, char **argv) {
     OutputFile diaFile(outputPrefix+"_dia.dat");
 
     //Run Monte Carlo simulation (xyz written only for production atm)
-    simulation.initialiseConfiguration(logfile,rsaIt);
+    simulation.initialiseConfiguration(logfile,initType,rsaIt);
     simulation.equilibration(logfile,xyzFile);
     simulation.production(logfile,xyzFile,vor2DFile,rad2DFile,vor3DFile,rad3DFile,vis2DFile,vis3DFile);
 
